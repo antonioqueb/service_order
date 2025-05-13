@@ -19,12 +19,12 @@
     <field name="name">service.order.tree</field>
     <field name="model">service.order</field>
     <field name="arch" type="xml">
-      <list string="Órdenes de Servicio">
+      <tree string="Órdenes de Servicio">
         <field name="name"/>
         <field name="partner_id"/>
         <field name="date_order"/>
         <field name="state"/>
-      </list>
+      </tree>
     </field>
   </record>
 
@@ -38,7 +38,10 @@
       <xpath expr="//form" position="attributes">
         <attribute name="string">Orden de Servicio</attribute>
       </xpath>
-      <!-- Aquí podrías ocultar pestañas irrelevantes, si lo deseas -->
+      <!-- Elimina los botones de pagos que no existen en service.order -->
+      <xpath expr="//button[@name='payment_action_capture']" position="replace"/>
+      <xpath expr="//button[@name='payment_action_void']" position="replace"/>
+      <xpath expr="//button[@id='create_invoice']" position="replace"/>
     </field>
   </record>
 
