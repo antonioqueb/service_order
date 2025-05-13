@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <odoo>
   <!-- Acción principal -->
   <record id="action_service_order" model="ir.actions.act_window">
@@ -14,7 +15,7 @@
     <field name="web_icon">service_order,static/description/icon.png</field>
   </record>
 
-    <!-- Secuencia para generar automáticamente el campo name de service.order -->
+  <!-- Secuencia para generar automáticamente el campo name de service.order -->
   <record id="seq_service_order" model="ir.sequence">
     <field name="name">Service Order</field>
     <field name="code">service.order</field>
@@ -59,11 +60,11 @@
                   string="Cancelar"
                   type="object"
                   invisible="state not in ['draft', 'confirmed']"/>
-            <!-- ← Aquí insertamos el statusbar -->
-        <field name="state"
-                widget="statusbar"
-                statusbar_visible="draft,confirmed,done"
-                statusbar_colors='{"draft":"blue","confirmed":"orange","done":"green"}'/>
+          <!-- Statusbar -->
+          <field name="state"
+                 widget="statusbar"
+                 statusbar_visible="draft,confirmed,done,cancel"
+                 statusbar_colors='{"draft":"blue","confirmed":"orange","done":"green","cancel":"red"}'/>
         </header>
         <sheet>
           <group>
@@ -90,6 +91,23 @@
                 <field name="pickup_location"/>
                 <field name="residue_new"/>
                 <field name="requiere_visita"/>
+              </group>
+            </page>
+            <page string="Transporte">
+              <group>
+                <field name="generador_id" string="Generador"/>
+                <field name="contact_name" string="Nombre de contacto"/>
+                <field name="contact_phone" string="Teléfono de contacto"/>
+              </group>
+              <group>
+                <field name="transportista_id" string="Transportista"/>
+                <field name="camion_id" string="Camión"/>
+                <field name="chofer_id" string="Chofer"/>
+              </group>
+              <group>
+                <field name="remolque1_id" string="Remolque 1"/>
+                <field name="remolque2_id" string="Remolque 2"/>
+                <field name="numero_bascula" string="Número de báscula"/>
               </group>
             </page>
           </notebook>
