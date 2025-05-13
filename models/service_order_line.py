@@ -19,5 +19,5 @@ class ServiceOrderLine(models.Model):
     )
     residue_type = fields.Selection(
         [('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
-        string='Tipo de Residuos', required=True
+        string='Tipo de Residuos', required=False
     )
