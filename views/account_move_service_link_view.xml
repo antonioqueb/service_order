@@ -1,0 +1,13 @@
+<odoo>
+  <record id="view_move_form_service_order_link" model="ir.ui.view">
+    <field name="name">account.move.form.service_order.link</field>
+    <field name="model">account.move</field>
+    <field name="inherit_id" ref="account.view_move_form"/>
+    <field name="arch" type="xml">
+      <!-- Después de invoice_origin mostramos nuestro campo -->
+      <xpath expr="//group[@name='sale_info_group']/field[@name='invoice_origin']" position="after">
+        <field name="service_order_id" readonly="1"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

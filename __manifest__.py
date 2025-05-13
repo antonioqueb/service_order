@@ -11,6 +11,7 @@
         'views/sale_order_inherit.xml',
         'views/service_order_invoice_button.xml',
         'views/service_order_invoice_view_button.xml',
+        'views/account_move_service_link_view.xml',
     ],
     'application': True,
     'installable': True,
