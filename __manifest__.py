@@ -10,6 +10,7 @@
         'views/service_order_views.xml',
         'views/sale_order_inherit.xml',
         'views/service_order_invoice_button.xml',
+        'views/service_order_invoice_view_button.xml',
     ],
     'application': True,
     'installable': True,
