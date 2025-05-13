@@ -59,23 +59,42 @@
           <button name="action_cancel"
                   string="Cancelar"
                   type="object"
-                  invisible="state not in ['draft', 'confirmed']"/>
-          <!-- Statusbar -->
+                  invisible="state not in ['draft','confirmed']"/>
           <field name="state"
                  widget="statusbar"
                  statusbar_visible="draft,confirmed,done,cancel"
                  statusbar_colors='{"draft":"blue","confirmed":"orange","done":"green","cancel":"red"}'/>
         </header>
         <sheet>
-          <!-- Campos actuales -->
-          <group>
-            <field name="name"/>
-            <field name="sale_order_id"/>
-            <field name="partner_id"/>
-            <field name="date_order"/>
+          <!-- Campos principales divididos en dos columnas -->
+          <group col="2">
+            <group>
+              <field name="name"/>
+              <field name="sale_order_id"/>
+              <field name="partner_id"/>
+              <field name="date_order"/>
+            </group>
+            <group>
+              <field name="generador_id" string="Generador"/>
+              <field name="contact_name" string="Nombre de contacto"/>
+              <field name="contact_phone" string="Teléfono de contacto"/>
+              <field name="transportista_id" string="Transportista"/>
+            </group>
           </group>
+          <!-- Segunda fila de campos adicionales -->
+          <group col="2" class="mt16">
+            <group>
+              <field name="camion" string="Camión"/>
+              <field name="chofer_id" string="Chofer"/>
+            </group>
+            <group>
+              <field name="remolque1" string="Remolque 1"/>
+              <field name="remolque2" string="Remolque 2"/>
+              <field name="numero_bascula" string="Número de báscula"/>
+            </group>
+          </group>
+          <!-- Notebook con secciones específicas -->
           <notebook>
-            <!-- Líneas de servicio existentes -->
             <page string="Líneas de Servicio">
               <field name="line_ids">
                 <list editable="bottom">
@@ -87,31 +106,12 @@
                 </list>
               </field>
             </page>
-            <!-- Configuración CRM existente -->
             <page string="Configuración CRM">
               <group>
                 <field name="service_frequency"/>
                 <field name="pickup_location"/>
                 <field name="residue_new"/>
                 <field name="requiere_visita"/>
-              </group>
-            </page>
-            <!-- Transporte: nuevos campos Char -->
-            <page string="Transporte">
-              <group>
-                <field name="generador_id" string="Generador"/>
-                <field name="contact_name" string="Nombre de contacto"/>
-                <field name="contact_phone" string="Teléfono de contacto"/>
-              </group>
-              <group>
-                <field name="transportista_id" string="Transportista"/>
-                <field name="camion" string="Camión"/>
-                <field name="chofer_id" string="Chofer"/>
-              </group>
-              <group>
-                <field name="remolque1" string="Remolque 1"/>
-                <field name="remolque2" string="Remolque 2"/>
-                <field name="numero_bascula" string="Número de báscula"/>
               </group>
             </page>
           </notebook>
