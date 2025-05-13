@@ -44,18 +44,13 @@ class ServiceOrder(models.Model):
     transportista_id = fields.Many2one(
         'res.partner', string='Transportista'
     )
-    camion_id = fields.Many2one(
-        'fleet.vehicle', string='Camión'
-    )
+    # Campos de transporte como Char en lugar de fleet.vehicle
+    camion = fields.Char(string='Camión')
     chofer_id = fields.Many2one(
         'res.partner', string='Chofer'
     )
-    remolque1_id = fields.Many2one(
-        'fleet.vehicle', string='Remolque 1'
-    )
-    remolque2_id = fields.Many2one(
-        'fleet.vehicle', string='Remolque 2'
-    )
+    remolque1 = fields.Char(string='Remolque 1')
+    remolque2 = fields.Char(string='Remolque 2')
     numero_bascula = fields.Char(
         string='Número de báscula'
     )
