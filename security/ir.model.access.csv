@@ -1,3 +1,3 @@
-"id","name","model_id:id","perm_read","perm_write","perm_create","perm_unlink"
-"access_service_order_user","service.order user","model_service_order",1,1,1,1
-"access_service_order_line_user","service.order line user","model_service_order_line",1,1,1,1
+id,name,model_id:ref,perm_read,perm_write,perm_create,perm_unlink
+access_service_order,service.order,model_service_order,1,1,1,1
+access_service_order_line,service.order.line,model_service_order_line,1,1,1,1
