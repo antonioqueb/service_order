@@ -1,0 +1,60 @@
+<odoo>
+  <!-- Acción principal -->
+  <record id="action_service_order" model="ir.actions.act_window">
+    <field name="name">Órdenes de Servicio</field>
+    <field name="res_model">service.order</field>
+    <field name="view_mode">tree,form</field>
+  </record>
+
+  <!-- MENÚ RAÍZ CON ÍCONO -->
+  <record id="menu_service_order_root" model="ir.ui.menu">
+    <field name="name">Órdenes de Servicio</field>
+    <field name="sequence">10</field>
+    <field name="action" ref="action_service_order"/>
+    <field name="web_icon">service_order,static/description/icon.png</field>
+  </record>
+
+  <!-- Vista de árbol -->
+  <record id="view_service_order_tree" model="ir.ui.view">
+    <field name="name">service.order.tree</field>
+    <field name="model">service.order</field>
+    <field name="arch" type="xml">
+      <list string="Órdenes de Servicio">
+        <field name="name"/>
+        <field name="partner_id"/>
+        <field name="date_order"/>
+        <field name="state"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- Vista de formulario (hereda form de sale.order) -->
+  <record id="view_service_order_form" model="ir.ui.view">
+    <field name="name">service.order.form</field>
+    <field name="model">service.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <!-- Ajusta el título del formulario -->
+      <xpath expr="//form" position="attributes">
+        <attribute name="string">Orden de Servicio</attribute>
+      </xpath>
+      <!-- Aquí podrías ocultar pestañas irrelevantes, si lo deseas -->
+    </field>
+  </record>
+
+  <!-- Botón en la cotización/contrato para crear la orden de servicio -->
+  <record id="view_sale_order_button_service" model="ir.ui.view">
+    <field name="name">sale.order.form.service.button</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button name="action_create_service_order"
+                string="Crear Orden de Servicio"
+                type="object"
+                class="btn-secondary"
+                groups="group_service_order_user,group_service_order_manager"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
