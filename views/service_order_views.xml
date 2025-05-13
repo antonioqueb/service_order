@@ -59,6 +59,11 @@
                   string="Cancelar"
                   type="object"
                   invisible="state not in ['draft', 'confirmed']"/>
+            <!-- ← Aquí insertamos el statusbar -->
+        <field name="state"
+                widget="statusbar"
+                statusbar_visible="draft,confirmed,done"
+                statusbar_colors='{"draft":"blue","confirmed":"orange","done":"green"}'/>
         </header>
         <sheet>
           <group>
