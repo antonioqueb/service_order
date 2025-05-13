@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from odoo import models, fields
 
 class ServiceOrderLine(models.Model):
@@ -14,6 +15,11 @@ class ServiceOrderLine(models.Model):
         'product.product',
         string='Producto',
         required=True
+    )
+    # Nota/descripcion que venga de la línea de venta
+    name = fields.Text(
+        string='Nota',
+        help='Descripción o comentario que venía en la línea de la orden de venta'
     )
     product_uom_qty = fields.Float(
         string='Cantidad',
