@@ -29,25 +29,53 @@
     </field>
   </record>
 
-  <!-- Vista de formulario de service.order: sin botones en header -->
-  <record id="view_service_order_form" model="ir.ui.view">
-    <field name="name">service.order.form</field>
+  <!-- NUEVA VISTA DE FORMULARIO PROPIA -->
+  <record id="view_service_order_form_custom" model="ir.ui.view">
+    <field name="name">service.order.form.custom</field>
     <field name="model">service.order</field>
-    <field name="inherit_id" ref="sale.view_order_form"/>
     <field name="type">form</field>
     <field name="arch" type="xml">
-      <!-- Ajustar título -->
-      <xpath expr="//form" position="attributes">
-        <attribute name="string">Orden de Servicio</attribute>
-      </xpath>
-      <!-- Dejar header completamente vacío -->
-      <xpath expr="//header" position="replace">
-        <header/>
-      </xpath>
+      <form string="Orden de Servicio">
+        <header>
+          <button name="action_confirm"
+                  string="Confirmar"
+                  type="object"
+                  states="draft"
+                  groups="group_service_order_manager"
+                  class="btn-primary"/>
+        </header>
+        <sheet>
+          <group>
+            <field name="partner_id"/>
+            <field name="date_order"/>
+            <field name="state" readonly="1"/>
+          </group>
+          <notebook>
+            <page string="Líneas de Servicio">
+              <field name="order_line_ids">
+                <tree editable="bottom">
+                  <field name="product_id"/>
+                  <field name="product_uom_qty"/>
+                  <field name="product_uom"/>
+                  <field name="residue_type"/>
+                </tree>
+              </field>
+            </page>
+            <page string="Información CRM">
+              <group>
+                <field name="service_frequency"/>
+                <field name="pickup_location"/>
+                <field name="residue_new"/>
+                <field name="requiere_visita"/>
+              </group>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
     </field>
   </record>
 
-  <!-- Botón en sale.order para generar la service.order -->
+  <!-- Botón para generar la orden de servicio desde la cotización -->
   <record id="view_sale_order_button_service" model="ir.ui.view">
     <field name="name">sale.order.form.service.button</field>
     <field name="model">sale.order</field>
