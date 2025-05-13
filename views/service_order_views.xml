@@ -80,6 +80,7 @@
                   <field name="product_uom_qty"/>
                   <field name="product_uom"/>
                   <field name="residue_type"/>
+                  <field name="packaging_id" string="Embalaje"/>
                 </list>
               </field>
             </page>
