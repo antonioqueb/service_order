@@ -29,21 +29,13 @@
     </field>
   </record>
 
-  <!-- NUEVA VISTA DE FORMULARIO PROPIA -->
+  <!-- Vista de formulario PROPIA, sin heredarse de sale.view_order_form -->
   <record id="view_service_order_form_custom" model="ir.ui.view">
     <field name="name">service.order.form.custom</field>
     <field name="model">service.order</field>
     <field name="type">form</field>
     <field name="arch" type="xml">
       <form string="Orden de Servicio">
-        <header>
-          <button name="action_confirm"
-                  string="Confirmar"
-                  type="object"
-                  states="draft"
-                  groups="group_service_order_manager"
-                  class="btn-primary"/>
-        </header>
         <sheet>
           <group>
             <field name="partner_id"/>
@@ -75,7 +67,7 @@
     </field>
   </record>
 
-  <!-- Botón para generar la orden de servicio desde la cotización -->
+  <!-- Botón en sale.order para generar la orden de servicio -->
   <record id="view_sale_order_button_service" model="ir.ui.view">
     <field name="name">sale.order.form.service.button</field>
     <field name="model">sale.order</field>
