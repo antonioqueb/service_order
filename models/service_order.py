@@ -1,3 +1,4 @@
+# models/service_order.py
 from odoo import models, fields, api
 from datetime import date
 
@@ -14,10 +15,12 @@ class ServiceOrder(models.Model):
         required=True, ondelete='restrict'
     )
     partner_id = fields.Many2one(
-        'res.partner', string='Cliente', required=True
+        'res.partner', string='Cliente',
+        required=True
     )
     date_order = fields.Datetime(
-        string='Fecha Pedido', default=fields.Datetime.now, required=True
+        string='Fecha Pedido', default=fields.Datetime.now,
+        required=True
     )
     expiration_date = fields.Date(
         string='Fecha Expiración',
@@ -30,7 +33,8 @@ class ServiceOrder(models.Model):
     pickup_location = fields.Char(string='Ubicación de recolección')
 
     line_ids = fields.One2many(
-        'service.order.line', 'service_order_id', string='Líneas de Servicio'
+        'service.order.line', 'service_order_id',
+        string='Líneas de Servicio'
     )
     state = fields.Selection([
         ('draft', 'Borrador'),
@@ -43,10 +47,10 @@ class ServiceOrder(models.Model):
         for rec in self:
             rec.state = 'confirmed'
 
-    def action_cancel(self):
-        for rec in self:
-            rec.state = 'cancel'
-
     def action_set_done(self):
         for rec in self:
             rec.state = 'done'
+
+    def action_cancel(self):
+        for rec in self:
+            rec.state = 'cancel'
