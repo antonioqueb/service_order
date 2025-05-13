@@ -36,14 +36,22 @@
     <field name="inherit_id" ref="sale.view_order_form"/>
     <field name="type">form</field>
     <field name="arch" type="xml">
-      <!-- Ajusta el título del formulario -->
+
+      <!-- 1) Título personalizado -->
       <xpath expr="//form" position="attributes">
         <attribute name="string">Orden de Servicio</attribute>
       </xpath>
-      <!-- Elimina botones de pagos no aplicables -->
-      <xpath expr="//button[@name='payment_action_capture']" position="replace"/>
-      <xpath expr="//button[@name='payment_action_void']" position="replace"/>
-      <xpath expr="//button[@id='create_invoice']" position="replace"/>
+
+      <!-- 2) Ocultar todos los botones de cabecera de sale.order -->
+      <xpath expr="//header/button[@name='action_quotation_send']" position="replace"/>
+      <xpath expr="//header/button[@id='send_proforma_primary']" position="replace"/>
+      <xpath expr="//header/button[@id='send_proforma']" position="replace"/>
+      <xpath expr="//header/button[@id='send_by_email']" position="replace"/>
+      <xpath expr="//header/button[@name='action_confirm']" position="replace"/>
+      <xpath expr="//header/button[@name='payment_action_capture']" position="replace"/>
+      <xpath expr="//header/button[@name='payment_action_void']" position="replace"/>
+      <xpath expr="//header/button[@id='create_invoice']" position="replace"/>
+
     </field>
   </record>
 
