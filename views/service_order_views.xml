@@ -67,6 +67,7 @@
                  statusbar_colors='{"draft":"blue","confirmed":"orange","done":"green","cancel":"red"}'/>
         </header>
         <sheet>
+          <!-- Campos actuales -->
           <group>
             <field name="name"/>
             <field name="sale_order_id"/>
@@ -74,6 +75,7 @@
             <field name="date_order"/>
           </group>
           <notebook>
+            <!-- Líneas de servicio existentes -->
             <page string="Líneas de Servicio">
               <field name="line_ids">
                 <list editable="bottom">
@@ -85,6 +87,7 @@
                 </list>
               </field>
             </page>
+            <!-- Configuración CRM existente -->
             <page string="Configuración CRM">
               <group>
                 <field name="service_frequency"/>
@@ -93,6 +96,7 @@
                 <field name="requiere_visita"/>
               </group>
             </page>
+            <!-- Transporte: nuevos campos Char -->
             <page string="Transporte">
               <group>
                 <field name="generador_id" string="Generador"/>
@@ -101,12 +105,12 @@
               </group>
               <group>
                 <field name="transportista_id" string="Transportista"/>
-                <field name="camion_id" string="Camión"/>
+                <field name="camion" string="Camión"/>
                 <field name="chofer_id" string="Chofer"/>
               </group>
               <group>
-                <field name="remolque1_id" string="Remolque 1"/>
-                <field name="remolque2_id" string="Remolque 2"/>
+                <field name="remolque1" string="Remolque 1"/>
+                <field name="remolque2" string="Remolque 2"/>
                 <field name="numero_bascula" string="Número de báscula"/>
               </group>
             </page>
