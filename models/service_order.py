@@ -5,11 +5,20 @@ class ServiceOrder(models.Model):
     _name = 'service.order'
     _description = 'Orden de Servicio'
 
-    name = fields.Char(string='Referencia', required=True, copy=False,
-                       default=lambda self: self.env['ir.sequence'].next_by_code('service.order'))
-    sale_order_id = fields.Many2one('sale.order', string='Contrato de Venta', required=True, ondelete='restrict')
-    partner_id = fields.Many2one('res.partner', string='Cliente', required=True)
-    date_order = fields.Datetime(string='Fecha Pedido', default=fields.Datetime.now, required=True)
+    name = fields.Char(
+        string='Referencia', required=True, copy=False,
+        default=lambda self: self.env['ir.sequence'].next_by_code('service.order')
+    )
+    sale_order_id = fields.Many2one(
+        'sale.order', string='Contrato de Venta',
+        required=True, ondelete='restrict'
+    )
+    partner_id = fields.Many2one(
+        'res.partner', string='Cliente', required=True
+    )
+    date_order = fields.Datetime(
+        string='Fecha Pedido', default=fields.Datetime.now, required=True
+    )
     expiration_date = fields.Date(
         string='Fecha Expiración',
         default=lambda self: date(date.today().year, 12, 31),
@@ -20,8 +29,9 @@ class ServiceOrder(models.Model):
     requiere_visita = fields.Boolean(string='Requiere visita presencial')
     pickup_location = fields.Char(string='Ubicación de recolección')
 
-    line_ids = fields.One2many('service.order.line', 'service_order_id', string='Líneas de Servicio')
-    invoice_ids = fields.One2many('account.move', 'service_order_id', string='Facturas')
+    line_ids = fields.One2many(
+        'service.order.line', 'service_order_id', string='Líneas de Servicio'
+    )
     state = fields.Selection([
         ('draft', 'Borrador'),
         ('confirmed', 'Confirmado'),

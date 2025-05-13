@@ -1,5 +1,5 @@
 <odoo>
-  <!-- Secuencia para service.order -->
+  <!-- Secuencia -->
   <record id="seq_service_order" model="ir.sequence">
     <field name="name">Service Order</field>
     <field name="code">service.order</field>
@@ -7,14 +7,14 @@
     <field name="padding">4</field>
   </record>
 
-  <!-- Acción principal -->
+  <!-- Acción -->
   <record id="action_service_order" model="ir.actions.act_window">
     <field name="name">Órdenes de Servicio</field>
     <field name="res_model">service.order</field>
     <field name="view_mode">list,form</field>
   </record>
 
-  <!-- Menú raíz con ícono -->
+  <!-- Menú -->
   <record id="menu_service_order_root" model="ir.ui.menu">
     <field name="name">Órdenes de Servicio</field>
     <field name="sequence">10</field>
@@ -22,7 +22,7 @@
     <field name="web_icon">service_order,static/description/icon.png</field>
   </record>
 
-  <!-- Vista de lista -->
+  <!-- Lista -->
   <record id="view_service_order_list" model="ir.ui.view">
     <field name="name">service.order.list</field>
     <field name="model">service.order</field>
@@ -37,7 +37,7 @@
     </field>
   </record>
 
-  <!-- Vista de formulario propia -->
+  <!-- Formulario -->
   <record id="view_service_order_form" model="ir.ui.view">
     <field name="name">service.order.form</field>
     <field name="model">service.order</field>
@@ -45,12 +45,12 @@
     <field name="arch" type="xml">
       <form string="Orden de Servicio">
         <header>
-          <button name="action_confirm" string="Confirmar" type="object"
-                  states="draft" class="btn-primary"/>
-          <button name="action_set_done" string="Marcar Completado" type="object"
-                  states="confirmed"/>
-          <button name="action_cancel" string="Cancelar" type="object"
-                  states="draft,confirmed"/>
+          <button name="action_confirm" string="Confirmar"
+                  type="object" states="draft" class="btn-primary"/>
+          <button name="action_set_done" string="Marcar Completado"
+                  type="object" states="confirmed"/>
+          <button name="action_cancel" string="Cancelar"
+                  type="object" states="draft,confirmed"/>
         </header>
         <sheet>
           <group>
@@ -72,22 +72,13 @@
                 </tree>
               </field>
             </page>
-            <page string="Configuración CRM">
+            <page string="Información CRM">
               <group>
                 <field name="service_frequency"/>
                 <field name="pickup_location"/>
                 <field name="residue_new"/>
                 <field name="requiere_visita"/>
               </group>
-            </page>
-            <page string="Facturación">
-              <field name="invoice_ids" context="{'default_service_order_id': active_id}">
-                <tree>
-                  <field name="name"/>
-                  <field name="invoice_date"/>
-                  <field name="state"/>
-                </tree>
-              </field>
             </page>
           </notebook>
         </sheet>
