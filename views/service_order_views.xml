@@ -79,6 +79,7 @@
               <field name="contact_name" string="Nombre de contacto"/>
               <field name="contact_phone" string="Teléfono de contacto"/>
               <field name="transportista_id" string="Transportista"/>
+              <field name="pickup_location" string="Ubicación de recolección"/>
             </group>
           </group>
           <!-- Segunda fila de campos adicionales -->
@@ -93,7 +94,7 @@
               <field name="numero_bascula" string="Número de báscula"/>
             </group>
           </group>
-          <!-- Notebook con secciones específicas -->
+          <!-- Notebook con Líneas de Servicio -->
           <notebook>
             <page string="Líneas de Servicio">
               <field name="line_ids">
@@ -105,14 +106,6 @@
                   <field name="product_uom"/>
                 </list>
               </field>
-            </page>
-            <page string="Configuración CRM">
-              <group>
-                <field name="service_frequency"/>
-                <field name="pickup_location"/>
-                <field name="residue_new"/>
-                <field name="requiere_visita"/>
-              </group>
             </page>
           </notebook>
         </sheet>
