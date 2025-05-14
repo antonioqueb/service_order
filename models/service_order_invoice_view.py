@@ -1,3 +1,4 @@
+# models/service_order_invoice_view.py
 from odoo import models, fields, api
 
 class ServiceOrder(models.Model):
