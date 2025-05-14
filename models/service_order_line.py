@@ -11,12 +11,10 @@ class ServiceOrderLine(models.Model):
         required=True,
         ondelete='cascade'
     )
-    # Ahora opcional para aceptar líneas de nota
     product_id = fields.Many2one(
         'product.product',
         string='Producto'
     )
-    # Descripción o comentario (nota) de la línea de venta
     name = fields.Text(
         string='Nota',
         help='Descripción o comentario que venía en la línea de la orden de venta'
@@ -24,12 +22,12 @@ class ServiceOrderLine(models.Model):
     product_uom_qty = fields.Float(
         string='Cantidad',
         default=1.0,
-        required=True
+        required=False
     )
     product_uom = fields.Many2one(
         'uom.uom',
         string='Unidad de Medida',
-        required=True
+        required=False
     )
     packaging_id = fields.Many2one(
         'product.packaging',
