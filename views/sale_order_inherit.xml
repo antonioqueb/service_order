@@ -1,12 +1,19 @@
 <odoo>
   <record id="view_sale_order_button_service" model="ir.ui.view">
-    <field name="name">sale.order.form.service.button</field>
+    <field name="name">sale.order.form.service.buttons</field>
     <field name="model">sale.order</field>
     <field name="inherit_id" ref="sale.view_order_form"/>
     <field name="arch" type="xml">
       <xpath expr="//header" position="inside">
+        <!-- Botón para crear órdenes de servicio -->
         <button name="action_create_service_order"
                 string="Crear Orden de Servicio"
+                type="object"
+                class="btn-secondary"
+                groups="sales_team.group_sale_salesman"/>
+        <!-- Botón para ver las órdenes de servicio creadas -->
+        <button name="action_view_service_orders"
+                string="Ver Órdenes de Servicio"
                 type="object"
                 class="btn-secondary"
                 groups="sales_team.group_sale_salesman"/>
