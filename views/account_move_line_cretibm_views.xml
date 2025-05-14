@@ -1,0 +1,19 @@
+<odoo>
+  <record id="account_move_line_tree_cretibm" model="ir.ui.view">
+    <field name="name">account.move.line.tree.cretibm</field>
+    <field name="model">account.move.line</field>
+    <!-- Hereda la vista de líneas de factura -->
+    <field name="inherit_id" ref="account.view_move_line_tree"/>
+    <field name="arch" type="xml">
+      <xpath expr="//list/field[@name='product_id']" position="after">
+        <field name="c"/>
+        <field name="r"/>
+        <field name="e"/>
+        <field name="t"/>
+        <field name="i"/>
+        <field name="b"/>
+        <field name="m"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
