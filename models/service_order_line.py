@@ -39,3 +39,9 @@ class ServiceOrderLine(models.Model):
                 rec.description = rec.product_id.display_name
             else:
                 rec.description = rec.name or ''
+
+    @api.onchange('product_id')
+    def _onchange_product_id(self):
+        # Si no hay producto (es nota), dejamos la cantidad en blanco
+        if not self.product_id:
+            self.product_uom_qty = False

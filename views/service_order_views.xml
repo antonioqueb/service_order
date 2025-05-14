@@ -82,6 +82,7 @@
               <field name="pickup_location" string="Ubicación de recolección"/>
             </group>
           </group>
+
           <!-- Segunda fila de campos adicionales -->
           <group col="2" class="mt16">
             <group>
@@ -105,8 +106,10 @@
                   <field name="residue_type"/>
                   <field name="packaging_id" string="Embalaje"/>
                   <!-- Oculta cantidad y unidad cuando no hay producto -->
-                  <field name="product_uom_qty" invisible="context.get('product_id') == False"/>
-                  <field name="product_uom"   invisible="context.get('product_id') == False"/>
+                  <field name="product_uom_qty"
+                         attrs="{'invisible': [('product_id', '=', False)]}"/>
+                  <field name="product_uom"
+                         attrs="{'invisible': [('product_id', '=', False)]}"/>
                 </list>
               </field>
             </page>
