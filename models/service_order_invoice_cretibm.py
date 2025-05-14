@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields
 from odoo.exceptions import UserError
+# good practice: importar excepciones específicas
 
 class ServiceOrder(models.Model):
     _inherit = 'service.order'
