@@ -100,12 +100,13 @@
             <page string="Líneas de Servicio">
               <field name="line_ids">
                 <list editable="bottom">
-                  <!-- Columna combinada: producto o nota -->
+                  <!-- Columna combinada: muestra producto o nota -->
                   <field name="description" string="Residuo / Equivalente"/>
                   <field name="residue_type"/>
                   <field name="packaging_id" string="Embalaje"/>
-                  <field name="product_uom_qty"/>
-                  <field name="product_uom"/>
+                  <!-- Oculta cantidad y unidad cuando no hay producto -->
+                  <field name="product_uom_qty" invisible="context.get('product_id') == False"/>
+                  <field name="product_uom"   invisible="context.get('product_id') == False"/>
                 </list>
               </field>
             </page>
