@@ -1,11 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <odoo>
   <record id="service_order_form_cretibm" model="ir.ui.view">
     <field name="name">service.order.form.cretibm</field>
     <field name="model">service.order</field>
     <field name="inherit_id" ref="service_order.view_service_order_form"/>
     <field name="arch" type="xml">
-      <!-- 1) En la lista de líneas de Servicio, justo después de 'packaging_id' -->
-      <xpath expr="//page[@string='Líneas de Servicio']//list/field[@name='packaging_id']" position="after">
+      <!--
+        Localizamos la página que contiene el one2many line_ids
+        y, dentro de su lista, insertamos nuestros campos
+        justo después de packaging_id.
+      -->
+      <xpath expr="//notebook/page[field[@name='line_ids']]//list/field[@name='packaging_id']"
+             position="after">
         <field name="c"/>
         <field name="r"/>
         <field name="e"/>
