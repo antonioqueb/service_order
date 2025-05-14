@@ -94,15 +94,16 @@
               <field name="numero_bascula" string="Número de báscula"/>
             </group>
           </group>
+
           <!-- Notebook con Líneas de Servicio -->
           <notebook>
             <page string="Líneas de Servicio">
               <field name="line_ids">
                 <list editable="bottom">
-                  <field name="product_id"/>
+                  <!-- Columna combinada: producto o nota -->
+                  <field name="description" string="Residuo / Equivalente"/>
                   <field name="residue_type"/>
                   <field name="packaging_id" string="Embalaje"/>
-                  <field name="name" string="Nota"/>       <!-- aquí -->
                   <field name="product_uom_qty"/>
                   <field name="product_uom"/>
                 </list>

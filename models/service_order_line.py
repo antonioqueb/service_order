@@ -1,44 +1,41 @@
 # -*- coding: utf-8 -*-
-from odoo import models, fields
+from odoo import models, fields, api
 
 class ServiceOrderLine(models.Model):
     _name = 'service.order.line'
     _description = 'Línea de Orden de Servicio'
 
     service_order_id = fields.Many2one(
-        'service.order',
-        string='Orden de Servicio',
-        required=True,
-        ondelete='cascade'
+        'service.order', 'Orden de Servicio',
+        required=True, ondelete='cascade'
     )
     product_id = fields.Many2one(
-        'product.product',
-        string='Producto'
+        'product.product', 'Residuo'
     )
     name = fields.Text(
-        string='Nota',
+        string='Equivalente',
         help='Descripción o comentario que venía en la línea de la orden de venta'
     )
-    product_uom_qty = fields.Float(
-        string='Cantidad',
-        default=1.0,
-        required=False
+    description = fields.Char(
+        string='Residuo / Equivalente',
+        compute='_compute_description',
+        store=False
     )
-    product_uom = fields.Many2one(
-        'uom.uom',
-        string='Unidad de Medida',
-        required=False
-    )
+    product_uom_qty = fields.Float('Cantidad', default=1.0)
+    product_uom = fields.Many2one('uom.uom', 'Unidad de Medida')
     packaging_id = fields.Many2one(
-        'product.packaging',
-        string='Embalaje de Producto',
+        'product.packaging', 'Embalaje de Producto',
         help='Tipo de embalaje asociado al producto'
     )
     residue_type = fields.Selection(
-        [
-            ('rsu', 'RSU'),
-            ('rme', 'RME'),
-            ('rp', 'RP'),
-        ],
-        string='Tipo de Residuos'
+        [('rsu','RSU'),('rme','RME'),('rp','RP')],
+        'Tipo de Residuos'
     )
+
+    @api.depends('product_id', 'name')
+    def _compute_description(self):
+        for rec in self:
+            if rec.product_id:
+                rec.description = rec.product_id.display_name
+            else:
+                rec.description = rec.name or ''
