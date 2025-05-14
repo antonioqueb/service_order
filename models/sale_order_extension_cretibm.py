@@ -11,8 +11,8 @@ class SaleOrder(models.Model):
         ServiceOrder = self.env['service.order']
         created_services = ServiceOrder.browse()
 
+        # 1) crear una orden de servicio por cada línea de venta
         for line in self.order_line:
-            # 1) Crear una orden de servicio por cada línea de venta
             service = ServiceOrder.create({
                 'sale_order_id': self.id,
                 'partner_id':    self.partner_id.id,
@@ -20,7 +20,7 @@ class SaleOrder(models.Model):
             })
             created_services |= service
 
-            # 2) Copiar la línea de venta en la orden de servicio
+            # 2) copiar la línea de venta
             vals = {
                 'service_order_id': service.id,
                 'name':             line.name,
@@ -34,12 +34,24 @@ class SaleOrder(models.Model):
                 })
             serv_line = self.env['service.order.line'].create(vals)
 
-            # 3) Propagar los flags C-R-E-T-I-B-M
+            # 3) propagar flags C-R-E-T-I-B-M
             flags = {f: getattr(line, f, False) for f in ('c', 'r', 'e', 't', 'i', 'b', 'm')}
             if any(flags.values()):
                 serv_line.write(flags)
 
-        # 4) Devolver acción mostrando todas las órdenes creadas
+        # 4) si solo hay una creada, abrimos su formulario
+        if len(created_services) == 1:
+            service = created_services
+            return {
+                'name':      'Orden de Servicio',
+                'type':      'ir.actions.act_window',
+                'res_model': 'service.order',
+                'view_mode': 'form',
+                'res_id':    service.id,
+                'target':    'current',
+            }
+
+        # 5) si hay varias, mostrar listado
         action = self.env.ref('service_order.action_service_order').read()[0]
         action.update({
             'name':      f"Órdenes de Servicio de {self.name}",
