@@ -33,7 +33,22 @@ class ServiceOrderLine(models.Model):
         'Tipo de Residuos'
     )
 
-    # ---------- Cálculos y validaciones ----------
+    plan_manejo = fields.Selection(
+        selection=[
+            ('reciclaje', 'Reciclaje'),
+            ('coprocesamiento', 'Co-procesamiento'),
+            ('tratamiento_fisicoquimico', 'Tratamiento Físico-Químico'),
+            ('tratamiento_biologico', 'Tratamiento Biológico'),
+            ('tratamiento_termico', 'Tratamiento Térmico (Incineración)'),
+            ('confinamiento_controlado', 'Confinamiento Controlado'),
+            ('reutilizacion', 'Reutilización'),
+            ('destruccion_fiscal', 'Destrucción Fiscal'),
+        ],
+        string="Plan de Manejo",
+        help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
+    )
+
+# ---------- Cálculos y validaciones ----------
     @api.depends('product_id', 'name')
     def _compute_description(self):
         for rec in self:

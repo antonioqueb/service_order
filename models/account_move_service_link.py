@@ -11,6 +11,24 @@ class AccountMove(models.Model):
         help='Orden de Servicio origen de esta factura'
     )
 
+class AccountMoveLine(models.Model):
+    _inherit = 'account.move.line'
+    
+    plan_manejo = fields.Selection(
+        selection=[
+            ('reciclaje', 'Reciclaje'),
+            ('coprocesamiento', 'Co-procesamiento'),
+            ('tratamiento_fisicoquimico', 'Tratamiento Físico-Químico'),
+            ('tratamiento_biologico', 'Tratamiento Biológico'),
+            ('tratamiento_termico', 'Tratamiento Térmico (Incineración)'),
+            ('confinamiento_controlado', 'Confinamiento Controlado'),
+            ('reutilizacion', 'Reutilización'),
+            ('destruccion_fiscal', 'Destrucción Fiscal'),
+        ],
+        string="Plan de Manejo",
+        help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
+    )
+
 class ServiceOrder(models.Model):
     _inherit = 'service.order'
 

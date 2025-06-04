@@ -25,6 +25,7 @@ class SaleOrder(models.Model):
                     'product_uom_qty':  line.product_uom_qty,
                     'product_uom':      line.product_uom.id,
                     'residue_type':     getattr(line, 'residue_type', False),
+                    'plan_manejo':      getattr(line, 'plan_manejo', False),
                     # packaging_id se omite porque sale.order.line no lo tiene
                 })
             self.env['service.order.line'].create(vals)
@@ -37,3 +38,12 @@ class SaleOrder(models.Model):
             'res_id':    service.id,
             'target':    'current',
         }
+
+    def action_view_service_orders(self):
+        self.ensure_one()
+        action = self.env.ref('service_order.action_service_order').read()[0]
+        action.update({
+            'name':   f"Órdenes de Servicio de {self.name}",
+            'domain': [('sale_order_id', '=', self.id)],
+        })
+        return action

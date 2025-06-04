@@ -4,7 +4,3 @@ from . import sale_order_extension
 from . import service_order_invoice
 from . import service_order_invoice_view
 from . import account_move_service_link
-from . import service_order_line_cretibm
-from . import sale_order_extension_cretibm
-from . import account_move_line_cretibm
-from . import service_order_invoice_cretibm

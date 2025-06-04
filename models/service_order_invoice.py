@@ -31,6 +31,7 @@ class ServiceOrder(models.Model):
                     'name':           line.product_id.display_name,
                     'tax_ids':        [(6, 0, line.product_id.taxes_id.ids)],
                     'product_uom_id': line.product_uom.id,
+                    'plan_manejo':    line.plan_manejo,
                 }))
             else:
                 # Línea de nota nativa en la factura

@@ -13,9 +13,8 @@
         'views/service_order_invoice_view_button.xml',
         'views/account_move_service_link_view.xml',
         'views/service_order_views.xml',
-        'views/service_order_cretibm_views.xml',
-        'views/account_move_line_cretibm_views.xml',
-        'views/account_move_form_cretibm_views.xml',
+        'views/account_move_form_extension.xml',
+
     ],
     'application': True,
     'installable': True,
