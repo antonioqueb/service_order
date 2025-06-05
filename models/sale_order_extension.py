@@ -11,24 +11,27 @@ class SaleOrder(models.Model):
             'sale_order_id': self.id,
             'partner_id':    self.partner_id.id,
             'date_order':    fields.Datetime.now(),
+            'service_frequency': getattr(self, 'service_frequency', False),
+            'residue_new': getattr(self, 'residue_new', False),
+            'requiere_visita': getattr(self, 'requiere_visita', False),
+            'pickup_location': getattr(self, 'pickup_location', False),
         })
-        # 2) Copiar tanto líneas con producto como líneas de nota
+        
+        # 2) Copiar líneas - ahora solo servicios reales
         for line in self.order_line:
-            vals = {
-                'service_order_id': service.id,
-                'name':             line.name,  # siempre copiamos la descripción
-            }
-            if line.product_id:
-                # solo si viene producto, agregamos los campos relacionados
-                vals.update({
-                    'product_id':       line.product_id.id,
-                    'product_uom_qty':  line.product_uom_qty,
-                    'product_uom':      line.product_uom.id,
-                    'residue_type':     getattr(line, 'residue_type', False),
-                    'plan_manejo':      getattr(line, 'plan_manejo', False),
-                    # packaging_id se omite porque sale.order.line no lo tiene
-                })
-            self.env['service.order.line'].create(vals)
+            # Solo procesar líneas que NO sean notas y tengan producto
+            if line.display_type != 'line_note' and line.product_id:
+                vals = {
+                    'service_order_id': service.id,
+                    'product_id': line.product_id.id,
+                    'name': line.name,
+                    'product_uom_qty': line.product_uom_qty,
+                    'product_uom': line.product_uom.id,
+                    'residue_type': getattr(line, 'residue_type', False),
+                    'plan_manejo': getattr(line, 'plan_manejo', False),
+                }
+                self.env['service.order.line'].create(vals)
+        
         # 3) Abrir la vista en modo formulario
         return {
             'name':      'Orden de Servicio',
