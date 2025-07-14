@@ -54,6 +54,34 @@ class ServiceOrder(models.Model):
     numero_bascula = fields.Char(
         string='Número de báscula'
     )
+    
+    # Nuevos campos para sincronización con manifiesto
+    numero_placa = fields.Char(
+        string='Número de Placa',
+        help='Número de placa del vehículo de transporte'
+    )
+    
+    generador_responsable = fields.Char(
+        string='Responsable del Generador',
+        help='Persona responsable en el sitio del generador'
+    )
+    
+    transportista_responsable = fields.Char(
+        string='Responsable del Transportista', 
+        help='Persona responsable del transportista'
+    )
+    
+    destinatario_id = fields.Many2one(
+        'res.partner',
+        string='Destinatario Final',
+        help='Empresa destinataria final de los residuos'
+    )
+
+    # Campo para observaciones
+    observaciones = fields.Text(
+        string='Observaciones',
+        help='Observaciones adicionales sobre la orden de servicio'
+    )
 
     line_ids = fields.One2many(
         'service.order.line', 'service_order_id',

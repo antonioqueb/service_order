@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Definición del reporte -->
+    <record id="action_report_service_order" model="ir.actions.report">
+        <field name="name">Orden de Servicio</field>
+        <field name="model">service.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">service_order.service_order_document</field>
+        <field name="report_file">service_order.service_order_document</field>
+        <field name="binding_model_id" ref="model_service_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Template del reporte -->
+    <template id="service_order_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div class="oe_structure"/>
+                        
+                        <!-- Encabezado compacto -->
+                        <div class="row mb16">
+                            <div class="col-12">
+                                <h4 class="mb8 text-primary">ORDEN DE SERVICIO N° <span t-field="doc.name"/></h4>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabla única con toda la información -->
+                        <table class="table table-sm table-bordered mb16" style="font-size: 11px;">
+                            <tr>
+                                <td style="width: 15%; background-color: rgb(233, 233, 233);"><strong>Cliente</strong></td>
+                                <td style="width: 35%;"><span t-field="doc.partner_id.name"/></td>
+                                <td style="width: 15%; background-color: rgb(233, 233, 233);"><strong>Transportista</strong></td>
+                                <td style="width: 35%;"><span t-field="doc.transportista_id.name"/></td>
+                            </tr>
+                            <tr>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Generador</strong></td>
+                                <td><span t-field="doc.generador_id.name"/></td>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Camión</strong></td>
+                                <td><span t-field="doc.camion"/></td>
+                            </tr>
+                            <tr>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Dirección</strong></td>
+                                <td>
+                                    <div t-field="doc.partner_id" 
+                                         t-options='{"widget": "contact", "fields": ["address"], "no_marker": True}'/>
+                                </td>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Chofer</strong></td>
+                                <td><span t-field="doc.chofer_id.name"/></td>
+                            </tr>
+                            <tr>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Contacto</strong></td>
+                                <td>
+                                    <span t-field="doc.contact_name"/>
+                                    <span t-if="doc.contact_phone"> - <span t-field="doc.contact_phone"/></span>
+                                </td>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Remolque 1</strong></td>
+                                <td><span t-field="doc.remolque1"/></td>
+                            </tr>
+                            <tr>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Ubicación</strong></td>
+                                <td><span t-field="doc.pickup_location"/></td>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Remolque 2</strong></td>
+                                <td><span t-field="doc.remolque2"/></td>
+                            </tr>
+                            <tr>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Fecha de Servicio</strong></td>
+                                <td><span t-field="doc.date_order" t-options='{"widget": "date"}'/></td>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>N° de Báscula</strong></td>
+                                <td style="height: 25px; background-color: #fff;">
+                                    <span t-if="doc.numero_bascula" t-field="doc.numero_bascula"/>
+                                    <span t-if="not doc.numero_bascula" style="color: #ccc;">_________________</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Estado</strong></td>
+                                <td><span t-field="doc.state"/></td>
+                                <td style="background-color: rgb(233, 233, 233);"><strong>Cotización</strong></td>
+                                <td><span t-field="doc.sale_order_id.name"/></td>
+                            </tr>
+                        </table>
+
+                        <!-- Líneas de Servicio -->
+                        <table class="table table-sm table-bordered mb16" style="font-size: 10px;">
+                            <thead style="background-color: rgb(233, 233, 233);">
+                                <tr>
+                                    <th style="width: 35%;" class="text-left">Descripción</th>
+                                    <th style="width: 12%;" class="text-right">Cantidad</th>
+                                    <th style="width: 20%;" class="text-center">Unidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="doc.line_ids" t-as="line">
+                                    <tr>
+                                        <td style="font-size: 10px;">
+                                            <span t-if="line.product_id" t-field="line.product_id.name"/>
+                                            <span t-if="not line.product_id" t-field="line.name"/>
+                                        </td>
+                                       
+                                        <td class="text-right" style="font-size: 10px;">
+                                            <span t-if="line.product_id and line.product_uom_qty" t-field="line.product_uom_qty"/>
+                                        </td>
+                                        <td class="text-center" style="font-size: 10px;">
+                                            <span t-if="line.packaging_id" t-field="line.packaging_id.name"/>
+                                            <span t-if="not line.packaging_id and line.product_uom" t-field="line.product_uom.name"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Sección de OBSERVACIONES -->
+                        <div class="mb32">
+                            <table class="table table-bordered" style="margin-bottom: 20px;">
+                                <tr>
+                                    <td style="background-color: rgb(233, 233, 233); text-align: center; font-weight: bold; padding: 8px;">
+                                        OBSERVACIONES
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="min-height: 80px; padding: 10px; font-size: 11px; vertical-align: top;">
+                                        <span t-if="doc.observaciones" t-field="doc.observaciones"/>
+                                        <span t-if="not doc.observaciones" style="color: #ccc; font-style: italic;">
+                                            Sin observaciones registradas
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Sección de FIRMAS -->
+                        <div style="margin-top: 40px;">
+                            <table class="table table-bordered" style="width: 100%;">
+                                <tr>
+                                    <!-- Columna Firma del Cliente -->
+                                    <td style="width: 50%; padding: 0; vertical-align: top;">
+                                        <table style="width: 100%; height: 140px; border: none;">
+                                            <tr>
+                                                <td style="text-align: center; font-weight: bold; background-color: rgb(233, 233, 233); padding: 8px; border: 1px solid #000;">
+                                                    FIRMA DEL CLIENTE
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="height: 100px; border: 1px solid #000; border-top: none; background-color: #fff;">
+                                                    <!-- Espacio en blanco para firma -->
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    <!-- Columna Firma del Chofer -->
+                                    <td style="width: 50%; padding: 0; vertical-align: top;">
+                                        <table style="width: 100%; height: 140px; border: none;">
+                                            <tr>
+                                                <td style="text-align: center; font-weight: bold; background-color: rgb(233, 233, 233); padding: 8px; border: 1px solid #000;">
+                                                    FIRMA DEL CHOFER
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="height: 100px; border: 1px solid #000; border-top: none; background-color: #fff;">
+                                                    <!-- Espacio en blanco para firma -->
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div class="oe_structure"/>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

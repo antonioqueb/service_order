@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <record id="view_service_order_form_print_button" model="ir.ui.view">
+    <field name="name">service.order.form.print.button</field>
+    <field name="model">service.order</field>
+    <field name="inherit_id" ref="view_service_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header/button[@name='action_cancel']" position="after">
+        <!-- Botón para imprimir el reporte -->
+        <button name="%(action_report_service_order)d"
+                string="Imprimir"
+                type="action"
+                class="btn-secondary"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

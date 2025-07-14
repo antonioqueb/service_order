@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <record id="view_product_template_form_residuos" model="ir.ui.view">
+    <field name="name">product.template.form.residuos</field>
+    <field name="model">product.template</field>
+    <field name="inherit_id" ref="product.product_template_form_view"/>
+    <field name="arch" type="xml">
+      <notebook position="inside">
+        <page string="Datos Ambientales" name="environmental_data">
+          <group string="Clasificación del Residuo" col="2">
+            <field name="clasificacion_residuo"/>
+            <field name="envase_tipo_default"/>
+            <field name="envase_capacidad_default"/>
+          </group>
+        </page>
+      </notebook>
+    </field>
+  </record>
+</odoo>

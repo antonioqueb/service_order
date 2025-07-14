@@ -48,11 +48,29 @@ class ServiceOrderLine(models.Model):
         help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
     )
 
+    # Campo computado para mostrar la unidad correcta en reportes
+    display_uom = fields.Char(
+        string='Unidad para Reporte',
+        compute='_compute_display_uom',
+        help='Muestra el embalaje si existe, sino la unidad de medida'
+    )
+
 # ---------- Cálculos y validaciones ----------
     @api.depends('product_id', 'name')
     def _compute_description(self):
         for rec in self:
             rec.description = rec.product_id.display_name if rec.product_id else (rec.name or '')
+
+    @api.depends('packaging_id', 'product_uom')
+    def _compute_display_uom(self):
+        """Computa la unidad a mostrar: embalaje si existe, sino unidad estándar"""
+        for rec in self:
+            if rec.packaging_id:
+                rec.display_uom = rec.packaging_id.name
+            elif rec.product_uom:
+                rec.display_uom = rec.product_uom.name
+            else:
+                rec.display_uom = ''
 
     @api.onchange('product_id')
     def _onchange_product_id(self):
@@ -63,9 +81,16 @@ class ServiceOrderLine(models.Model):
                 if not rec.product_uom_qty:
                     rec.product_uom_qty = 1.0
                 rec.product_uom = rec.product_id.uom_id
+                # Buscar un embalaje por defecto para el producto
+                if not rec.packaging_id:
+                    default_packaging = rec.product_id.packaging_ids.filtered('is_default')[:1]
+                    if not default_packaging:
+                        default_packaging = rec.product_id.packaging_ids[:1]
+                    rec.packaging_id = default_packaging
             else:
                 rec.product_uom_qty = False
                 rec.product_uom     = False
+                rec.packaging_id    = False
 
     @api.constrains('product_id', 'product_uom_qty')
     def _check_qty_for_products(self):
