@@ -5,7 +5,7 @@ from odoo.exceptions import ValidationError
 class ServiceOrderLine(models.Model):
     _name = 'service.order.line'
     _description = 'Línea de Orden de Servicio'
-
+    
     service_order_id = fields.Many2one(
         'service.order', 'Orden de Servicio',
         required=True, ondelete='cascade'
@@ -19,11 +19,17 @@ class ServiceOrderLine(models.Model):
         string='Residuo / Equivalente',
         compute='_compute_description', store=False
     )
-
-    # ▶  SIN default: así puede quedar realmente vacío (NULL) si es nota
+    
+    # ▶ SIN default: así puede quedar realmente vacío (NULL) si es nota
     product_uom_qty = fields.Float('Cantidad')
-    product_uom     = fields.Many2one('uom.uom', 'Unidad de Medida')
-
+    product_uom = fields.Many2one('uom.uom', 'Unidad de Medida')
+    
+    # NUEVO: Campo para almacenar el peso en kg desde el CRM lead
+    weight_kg = fields.Float(
+        string='Peso Total (kg)',
+        help='Peso total del residuo en kilogramos desde el lead/cotización'
+    )
+    
     packaging_id = fields.Many2one(
         'product.packaging', 'Embalaje de Producto',
         help='Tipo de embalaje asociado al producto'
@@ -32,7 +38,6 @@ class ServiceOrderLine(models.Model):
         [('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
         'Tipo de Residuos'
     )
-
     plan_manejo = fields.Selection(
         selection=[
             ('reciclaje', 'Reciclaje'),
@@ -48,30 +53,12 @@ class ServiceOrderLine(models.Model):
         help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
     )
 
-    # Campo computado para mostrar la unidad correcta en reportes
-    display_uom = fields.Char(
-        string='Unidad para Reporte',
-        compute='_compute_display_uom',
-        help='Muestra el embalaje si existe, sino la unidad de medida'
-    )
-
 # ---------- Cálculos y validaciones ----------
     @api.depends('product_id', 'name')
     def _compute_description(self):
         for rec in self:
             rec.description = rec.product_id.display_name if rec.product_id else (rec.name or '')
-
-    @api.depends('packaging_id', 'product_uom')
-    def _compute_display_uom(self):
-        """Computa la unidad a mostrar: embalaje si existe, sino unidad estándar"""
-        for rec in self:
-            if rec.packaging_id:
-                rec.display_uom = rec.packaging_id.name
-            elif rec.product_uom:
-                rec.display_uom = rec.product_uom.name
-            else:
-                rec.display_uom = ''
-
+    
     @api.onchange('product_id')
     def _onchange_product_id(self):
         """Si quitamos el producto (es nota) dejamos qty vacía.
@@ -89,9 +76,9 @@ class ServiceOrderLine(models.Model):
                     rec.packaging_id = default_packaging
             else:
                 rec.product_uom_qty = False
-                rec.product_uom     = False
-                rec.packaging_id    = False
-
+                rec.product_uom = False
+                rec.packaging_id = False
+    
     @api.constrains('product_id', 'product_uom_qty')
     def _check_qty_for_products(self):
         """Obliga a poner cantidad > 0 cuando hay producto;

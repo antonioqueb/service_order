@@ -10,7 +10,7 @@
         <field name="binding_model_id" ref="model_service_order"/>
         <field name="binding_type">report</field>
     </record>
-
+    
     <!-- Template del reporte -->
     <template id="service_order_document">
         <t t-call="web.html_container">
@@ -80,36 +80,48 @@
                                 <td><span t-field="doc.sale_order_id.name"/></td>
                             </tr>
                         </table>
-
-                        <!-- Líneas de Servicio -->
+                        
+                        <!-- Líneas de Servicio - SOLO 2 COLUMNAS -->
                         <table class="table table-sm table-bordered mb16" style="font-size: 10px;">
                             <thead style="background-color: rgb(233, 233, 233);">
                                 <tr>
-                                    <th style="width: 35%;" class="text-left">Descripción</th>
-                                    <th style="width: 12%;" class="text-right">Cantidad</th>
-                                    <th style="width: 20%;" class="text-center">Unidad</th>
+                                    <th style="width: 70%;" class="text-left">Descripción</th>
+                                    <th style="width: 30%;" class="text-right">Número</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <t t-foreach="doc.line_ids" t-as="line">
                                     <tr>
+                                        <!-- COLUMNA 1: Descripción -->
                                         <td style="font-size: 10px;">
                                             <span t-if="line.product_id" t-field="line.product_id.name"/>
                                             <span t-if="not line.product_id" t-field="line.name"/>
                                         </td>
-                                       
+                                        
+                                        <!-- COLUMNA 2: Número (combinando peso + cantidad + unidad) -->
                                         <td class="text-right" style="font-size: 10px;">
-                                            <span t-if="line.product_id and line.product_uom_qty" t-field="line.product_uom_qty"/>
-                                        </td>
-                                        <td class="text-center" style="font-size: 10px;">
-                                            <span t-if="line.packaging_id" t-field="line.packaging_id.name"/>
-                                            <span t-if="not line.packaging_id and line.product_uom" t-field="line.product_uom.name"/>
+                                            <span t-if="line.product_id">
+                                                <!-- Mostrar peso si existe -->
+                                                <span t-if="line.weight_kg">
+                                                    <span t-field="line.weight_kg"/> kg
+                                                </span>
+                                                
+                                                <!-- Separador si hay peso y cantidad -->
+                                                <span t-if="line.weight_kg and line.product_uom_qty"> | </span>
+                                                
+                                                <!-- Mostrar cantidad con unidad -->
+                                                <span t-if="line.product_uom_qty">
+                                                    <span t-field="line.product_uom_qty"/>
+                                                    <span t-if="line.packaging_id"> <span t-field="line.packaging_id.name"/></span>
+                                                    <span t-elif="line.product_uom"> <span t-field="line.product_uom.name"/></span>
+                                                </span>
+                                            </span>
                                         </td>
                                     </tr>
                                 </t>
                             </tbody>
                         </table>
-
+                        
                         <!-- Sección de OBSERVACIONES -->
                         <div class="mb32">
                             <table class="table table-bordered" style="margin-bottom: 20px;">
@@ -128,7 +140,7 @@
                                 </tr>
                             </table>
                         </div>
-
+                        
                         <!-- Sección de FIRMAS -->
                         <div style="margin-top: 40px;">
                             <table class="table table-bordered" style="width: 100%;">
@@ -166,7 +178,6 @@
                                 </tr>
                             </table>
                         </div>
-
                         <div class="oe_structure"/>
                     </div>
                 </t>

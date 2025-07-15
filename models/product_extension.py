@@ -1,5 +1,4 @@
-# models/product_extension.py - NUEVO ARCHIVO en módulo service_order
-
+# -*- coding: utf-8 -*-
 from odoo import models, fields
 
 class ProductTemplate(models.Model):
