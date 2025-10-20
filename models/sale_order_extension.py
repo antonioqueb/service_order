@@ -17,12 +17,13 @@ class SaleOrder(models.Model):
             'pickup_location': getattr(self, 'pickup_location', False),
         })
         
-        # 2) Copiar líneas - ahora propagando CORRECTAMENTE el peso
+        # 2) Copiar líneas - ahora propagando CORRECTAMENTE peso y capacidad
         for line in self.order_line:
             # Solo procesar líneas que NO sean notas y tengan producto
             if line.display_type != 'line_note' and line.product_id:
-                # NUEVO: Obtener el peso desde los campos de la línea de venta
+                # Obtener el peso desde los campos de la línea de venta
                 weight_kg = 0.0
+                capacity = ""
                 
                 # Primero intentar desde los campos específicos de residuo en la línea
                 if hasattr(line, 'residue_weight_kg') and line.residue_weight_kg:
@@ -35,6 +36,11 @@ class SaleOrder(models.Model):
                     )
                     if residue:
                         weight_kg = residue[0].weight_kg
+                        capacity = residue[0].capacity if hasattr(residue[0], 'capacity') else 0.0
+                
+                # Obtener capacidad desde la línea de venta
+                if hasattr(line, 'residue_capacity') and line.residue_capacity:
+                    capacity = line.residue_capacity
                 
                 # Determinar la unidad de medida correcta
                 # Prioridad: 1) Embalaje, 2) UoM del producto, 3) UoM de la línea
@@ -51,8 +57,9 @@ class SaleOrder(models.Model):
                     'name': line.name,
                     'product_uom_qty': line.product_uom_qty,
                     'product_uom': uom_id,
-                    'weight_kg': weight_kg,  # CORREGIDO: Propagación correcta del peso
-                    'packaging_id': line.product_packaging_id.id if line.product_packaging_id else False,  # NUEVO: Propagar embalaje
+                    'weight_kg': weight_kg,
+                    'capacity': capacity,  # NUEVO: Propagar capacidad
+                    'packaging_id': line.product_packaging_id.id if line.product_packaging_id else False,
                     'residue_type': getattr(line, 'residue_type', False),
                     'plan_manejo': getattr(line, 'plan_manejo', False),
                 }

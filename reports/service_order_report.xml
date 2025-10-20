@@ -81,12 +81,12 @@
                             </tr>
                         </table>
                         
-                        <!-- Líneas de Servicio - SOLO 2 COLUMNAS -->
+                        <!-- Líneas de Servicio - MEJORADO CON CAPACIDAD -->
                         <table class="table table-sm table-bordered mb16" style="font-size: 10px;">
                             <thead style="background-color: rgb(233, 233, 233);">
                                 <tr>
-                                    <th style="width: 70%;" class="text-left">Descripción</th>
-                                    <th style="width: 30%;" class="text-right">Número</th>
+                                    <th style="width: 50%;" class="text-left">Descripción</th>
+                                    <th style="width: 50%;" class="text-right">Número</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -98,9 +98,17 @@
                                             <span t-if="not line.product_id" t-field="line.name"/>
                                         </td>
                                         
-                                        <!-- COLUMNA 2: Número (combinando peso + cantidad + unidad) -->
+                                        <!-- COLUMNA 2: Número (capacidad + peso + cantidad + unidad) -->
                                         <td class="text-right" style="font-size: 10px;">
                                             <span t-if="line.product_id">
+                                                <!-- Mostrar capacidad si existe -->
+                                                <span t-if="line.capacity">
+                                                    <span t-field="line.capacity"/>
+                                                </span>
+                                                
+                                                <!-- Separador si hay capacidad y otros valores -->
+                                                <span t-if="line.capacity and (line.weight_kg or line.product_uom_qty)"> | </span>
+                                                
                                                 <!-- Mostrar peso si existe -->
                                                 <span t-if="line.weight_kg">
                                                     <span t-field="line.weight_kg"/> kg

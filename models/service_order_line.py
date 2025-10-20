@@ -20,14 +20,20 @@ class ServiceOrderLine(models.Model):
         compute='_compute_description', store=False
     )
     
-    # ▶ SIN default: así puede quedar realmente vacío (NULL) si es nota
+    # SIN default: así puede quedar realmente vacío (NULL) si es nota
     product_uom_qty = fields.Float('Cantidad')
     product_uom = fields.Many2one('uom.uom', 'Unidad de Medida')
     
-    # NUEVO: Campo para almacenar el peso en kg desde el CRM lead
+    # Campo para almacenar el peso en kg desde el CRM lead
     weight_kg = fields.Float(
         string='Peso Total (kg)',
         help='Peso total del residuo en kilogramos desde el lead/cotización'
+    )
+    
+    # NUEVO: Campo para capacidad en litros
+    capacity = fields.Char(
+        string='Capacidad',
+        help='Capacidad del contenedor (ej: 100 L, 200 Kg, 50 CM³)'
     )
     
     packaging_id = fields.Many2one(

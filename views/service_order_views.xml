@@ -118,8 +118,13 @@
                   <field name="residue_type"/>
                   <field name="plan_manejo"/> 
                   <field name="packaging_id" string="Embalaje"/>
-                  <!-- Mostrar peso en kg y cantidad de unidades -->
-                  <field name="weight_kg" string="Número" invisible="not product_id"/>
+                  <!-- NUEVO: Mostrar capacidad -->
+                  <field name="capacity" string="Capacidad" invisible="not product_id"/>
+                  <!-- Mostrar peso en kg -->
+                  <field name="weight_kg" string="Peso (kg)" invisible="not product_id"/>
+                  <!-- Mostrar cantidad -->
+                  <field name="product_uom_qty" string="Cantidad" invisible="not product_id"/>
+                  <field name="product_uom" string="UoM" invisible="not product_id"/>
                 </list>
               </field>
             </page>
