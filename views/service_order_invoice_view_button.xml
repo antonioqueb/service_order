@@ -1,16 +1,17 @@
 <odoo>
-  <record id="view_service_order_form_view_invoices" model="ir.ui.view">
-    <field name="name">service.order.form.view_invoices.button</field>
+  <record id="view_service_order_form_invoice" model="ir.ui.view">
+    <field name="name">service.order.form.invoice.button</field>
     <field name="model">service.order</field>
+    <!-- Referencia ahora al form view, no a la acción -->
     <field name="inherit_id" ref="view_service_order_form"/>
     <field name="arch" type="xml">
-      <!-- Inserta el botón inmediatamente después de “Crear Factura” -->
-      <xpath expr="//header/button[@name='action_create_invoice']" position="after">
-        <button name="action_view_linked_invoices"
-                string="Ver Facturas"
+      <xpath expr="//header" position="inside">
+        <!-- MODIFICADO: Ocultar botón si ya está facturado -->
+        <button name="action_create_invoice"
+                string="Crear Factura"
                 type="object"
-                class="btn-secondary"
-                invisible="not invoice_count"/>
+                class="btn-success"
+                invisible="state != 'done' or invoicing_status == 'invoiced'"/>
       </xpath>
     </field>
   </record>

@@ -1,107 +1,132 @@
-from odoo import models, fields, api
-from datetime import date
+# -*- coding: utf-8 -*-
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError
 
 class ServiceOrder(models.Model):
     _name = 'service.order'
     _description = 'Orden de Servicio'
-
+    _inherit = ['mail.thread', 'mail.activity.mixin']
+    
     name = fields.Char(
-        string='Referencia', required=True, copy=False,
-        default=lambda self: self.env['ir.sequence'].next_by_code('service.order')
+        string='Número',
+        required=True,
+        copy=False,
+        readonly=True,
+        default=lambda self: _('New')
     )
+    
     sale_order_id = fields.Many2one(
-        'sale.order', string='Contrato de Venta',
-        required=True, ondelete='restrict'
+        'sale.order',
+        string='Orden de Venta',
+        ondelete='set null'
     )
+    
     partner_id = fields.Many2one(
-        'res.partner', string='Cliente',
-        required=True
-    )
-    date_order = fields.Datetime(
-        string='Fecha Pedido', default=fields.Datetime.now,
-        required=True
-    )
-    expiration_date = fields.Date(
-        string='Fecha Expiración',
-        default=lambda self: date(date.today().year, 12, 31),
-        required=True
-    )
-    service_frequency = fields.Char(string='Frecuencia del Servicio')
-    residue_new = fields.Boolean(string='¿Residuo Nuevo?')
-    requiere_visita = fields.Boolean(string='Requiere visita presencial')
-    pickup_location = fields.Char(string='Ubicación de recolección')
-
-    # Campos adicionales
-    generador_id = fields.Many2one(
-        'res.partner', string='Generador'
-    )
-    contact_name = fields.Char(
-        string='Nombre de contacto'
-    )
-    contact_phone = fields.Char(
-        string='Teléfono de contacto'
-    )
-    transportista_id = fields.Many2one(
-        'res.partner', string='Transportista'
-    )
-    # Campos de transporte como Char en lugar de fleet.vehicle
-    camion = fields.Char(string='Camión')
-    chofer_id = fields.Many2one(
-        'res.partner', string='Chofer'
-    )
-    remolque1 = fields.Char(string='Remolque 1')
-    remolque2 = fields.Char(string='Remolque 2')
-    numero_bascula = fields.Char(
-        string='Número de báscula'
-    )
-    
-    # Nuevos campos para sincronización con manifiesto
-    numero_placa = fields.Char(
-        string='Número de Placa',
-        help='Número de placa del vehículo de transporte'
-    )
-    
-    generador_responsable = fields.Char(
-        string='Responsable del Generador',
-        help='Persona responsable en el sitio del generador'
-    )
-    
-    transportista_responsable = fields.Char(
-        string='Responsable del Transportista', 
-        help='Persona responsable del transportista'
-    )
-    
-    destinatario_id = fields.Many2one(
         'res.partner',
-        string='Destinatario Final',
-        help='Empresa destinataria final de los residuos'
+        string='Cliente',
+        required=True,
+        tracking=True
     )
-
-    # Campo para observaciones
-    observaciones = fields.Text(
-        string='Observaciones',
-        help='Observaciones adicionales sobre la orden de servicio'
+    
+    date_order = fields.Datetime(
+        string='Fecha',
+        required=True,
+        default=fields.Datetime.now
     )
-
-    line_ids = fields.One2many(
-        'service.order.line', 'service_order_id',
-        string='Líneas de Servicio'
-    )
+    
     state = fields.Selection([
         ('draft', 'Borrador'),
         ('confirmed', 'Confirmado'),
-        ('done', 'Realizado'),
+        ('done', 'Completado'),
         ('cancel', 'Cancelado'),
-    ], string='Estado', default='draft', required=True)
-
+    ], string='Estado', default='draft', tracking=True)
+    
+    invoicing_status = fields.Selection([
+        ('no', 'No Facturado'),
+        ('invoiced', 'Facturado'),
+    ], string='Estado de Facturación', default='no', readonly=True, tracking=True, copy=False)
+    
+    line_ids = fields.One2many(
+        'service.order.line',
+        'service_order_id',
+        string='Líneas'
+    )
+    
+    observaciones = fields.Text(string='Observaciones')
+    
+    service_frequency = fields.Selection([
+        ('unico', 'Único'),
+        ('semanal', 'Semanal'),
+        ('quincenal', 'Quincenal'),
+        ('mensual', 'Mensual'),
+    ], string='Frecuencia del Servicio')
+    
+    residue_new = fields.Boolean(string='Residuo Nuevo')
+    requiere_visita = fields.Boolean(string='Requiere Visita')
+    pickup_location = fields.Char(string='Ubicación de Recolección')
+    
+    generador_id = fields.Many2one('res.partner', string='Generador')
+    contact_name = fields.Char(string='Nombre de Contacto')
+    contact_phone = fields.Char(string='Teléfono de Contacto')
+    transportista_id = fields.Many2one('res.partner', string='Transportista')
+    camion = fields.Char(string='Camión')
+    numero_placa = fields.Char(string='Número de Placa')
+    chofer_id = fields.Many2one('res.partner', string='Chofer')
+    transportista_responsable = fields.Char(string='Responsable Transportista')
+    remolque1 = fields.Char(string='Remolque 1')
+    remolque2 = fields.Char(string='Remolque 2')
+    numero_bascula = fields.Char(string='Número de Báscula')
+    generador_responsable = fields.Char(string='Responsable Generador')
+    destinatario_id = fields.Many2one('res.partner', string='Destinatario Final')
+    
+    invoice_count = fields.Integer(
+        string='Número de Facturas',
+        compute='_compute_invoice_count',
+        store=False
+    )
+    
+    invoice_ids = fields.One2many(
+        'account.move',
+        'service_order_id',
+        string='Facturas',
+        readonly=True
+    )
+    
+    @api.model
+    def create(self, vals):
+        if vals.get('name', _('New')) == _('New'):
+            vals['name'] = self.env['ir.sequence'].next_by_code('service.order') or _('New')
+        return super(ServiceOrder, self).create(vals)
+    
     def action_confirm(self):
-        for rec in self:
-            rec.state = 'confirmed'
-
+        self.write({'state': 'confirmed'})
+    
     def action_set_done(self):
-        for rec in self:
-            rec.state = 'done'
-
+        self.write({'state': 'done'})
+    
     def action_cancel(self):
-        for rec in self:
-            rec.state = 'cancel'
+        self.write({'state': 'cancel'})
+    
+    @api.depends('invoice_ids', 'invoice_ids.state')
+    def _compute_invoice_count(self):
+        for order in self:
+            invoices = order.invoice_ids.filtered(
+                lambda inv: inv.move_type == 'out_invoice' and inv.state != 'cancel'
+            )
+            order.invoice_count = len(invoices)
+    
+    def action_view_linked_invoices(self):
+        self.ensure_one()
+        invoices = self.invoice_ids.filtered(lambda inv: inv.move_type == 'out_invoice')
+        
+        if not invoices:
+            raise UserError(_('No hay facturas vinculadas a esta orden de servicio.'))
+        
+        return {
+            'name': _('Facturas Vinculadas'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.move',
+            'view_mode': 'tree,form',
+            'domain': [('id', 'in', invoices.ids)],
+            'context': {'create': False},
+        }

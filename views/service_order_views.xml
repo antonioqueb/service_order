@@ -35,6 +35,8 @@
         <field name="partner_id"/>
         <field name="date_order"/>
         <field name="state"/>
+        <!-- NUEVO: Campo de estado de facturación visible en lista -->
+        <field name="invoicing_status" widget="badge" decoration-success="invoicing_status == 'invoiced'" decoration-info="invoicing_status == 'no'"/>
       </list>
     </field>
   </record>
@@ -66,6 +68,20 @@
                  statusbar_colors='{"draft":"blue","confirmed":"orange","done":"green","cancel":"red"}'/>
         </header>
         <sheet>
+          <!-- NUEVO: Widget de estado en la parte superior -->
+          <div class="oe_button_box" name="button_box">
+            <button name="action_view_linked_invoices"
+                    type="object"
+                    class="oe_stat_button"
+                    icon="fa-file-text-o"
+                    invisible="invoice_count == 0">
+              <field name="invoice_count" widget="statinfo" string="Facturas"/>
+            </button>
+          </div>
+          
+          <!-- NUEVO: Badge de estado de facturación -->
+          <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status != 'invoiced'"/>
+          
           <!-- Campos principales divididos en dos columnas -->
           <group col="2">
             <group>
@@ -73,6 +89,8 @@
               <field name="sale_order_id"/>
               <field name="partner_id"/>
               <field name="date_order"/>
+              <!-- NUEVO: Campo de estado de facturación visible -->
+              <field name="invoicing_status" widget="badge" decoration-success="invoicing_status == 'invoiced'" decoration-info="invoicing_status == 'no'"/>
             </group>
             <group>
               <field name="generador_id" string="Generador"/>
