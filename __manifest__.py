@@ -1,6 +1,6 @@
 {
     'name': 'Service Order',
-    'version': '18.0.1.0.0',
+    'version': '19.0.1.0.0',
     'category': 'Services',
     'summary': 'Gestión de Órdenes de Servicio independiente',
     'author': 'Alphaqueb Consulting',
