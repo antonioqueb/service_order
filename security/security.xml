@@ -1,12 +1,15 @@
 <odoo>
   <data noupdate="1">
+    <!-- Grupo Usuario -->
     <record id="group_service_order_user" model="res.groups">
       <field name="name">Service Order User</field>
-      <field name="category_id" ref="base.module_category_services"/>
+      <!-- En Odoo 19, category_id ya no es un campo válido en res.groups en este contexto -->
     </record>
+
+    <!-- Grupo Manager -->
     <record id="group_service_order_manager" model="res.groups">
       <field name="name">Service Order Manager</field>
-      <field name="category_id" ref="base.module_category_services"/>
+      <!-- Se elimina category_id aquí también -->
       <field name="implied_ids" eval="[(4, ref('group_service_order_user'))]"/>
     </record>
   </data>

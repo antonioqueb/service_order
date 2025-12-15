@@ -1,74 +1,92 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-  <!-- Acción principal -->
+
+  <!-- =========================================================
+       ACCIÓN PRINCIPAL
+       ========================================================= -->
   <record id="action_service_order" model="ir.actions.act_window">
     <field name="name">Órdenes de Servicio</field>
     <field name="res_model">service.order</field>
     <field name="view_mode">list,form</field>
   </record>
-  
-  <!-- MENÚ RAÍZ CON ÍCONO -->
+
+  <!-- =========================================================
+       MENÚ RAÍZ
+       ========================================================= -->
   <record id="menu_service_order_root" model="ir.ui.menu">
     <field name="name">Servicios</field>
     <field name="sequence">10</field>
     <field name="action" ref="action_service_order"/>
     <field name="web_icon">service_order,static/description/icon.png</field>
   </record>
-  
-  <!-- Secuencia para generar automáticamente el campo name de service.order -->
-  <record id="seq_service_order" model="ir.sequence">
-    <field name="name">Service Order</field>
-    <field name="code">service.order</field>
-    <field name="prefix">SO-</field>
-    <field name="padding">4</field>
-    <field name="company_id" eval="False"/>
-  </record>
-  
-  <!-- Lista de service.order -->
+
+  <!-- =========================================================
+       VISTA LISTA
+       ========================================================= -->
   <record id="view_service_order_list" model="ir.ui.view">
     <field name="name">service.order.list</field>
     <field name="model">service.order</field>
     <field name="type">list</field>
     <field name="arch" type="xml">
-      <list string="Órdenes de Servicio">
-        <field name="name"/>
-        <field name="partner_id"/>
-        <field name="date_order"/>
-        <field name="state"/>
-        <!-- NUEVO: Campo de estado de facturación visible en lista -->
-        <field name="invoicing_status" widget="badge" decoration-success="invoicing_status == 'invoiced'" decoration-info="invoicing_status == 'no'"/>
+      <list string="Órdenes de Servicio" default_order="date_order desc">
+        <field name="name" string="Folio" class="fw-bold"/>
+        <field name="date_order" string="Fecha"/>
+        <field name="partner_id" string="Cliente"/>
+        <field name="sale_order_id" string="Cotización" readonly="1"/>
+        <field name="state" widget="badge"
+               decoration-info="state == 'draft'"
+               decoration-warning="state == 'confirmed'"
+               decoration-success="state == 'done'"
+               decoration-danger="state == 'cancel'"/>
+        <field name="invoicing_status" string="Facturación" widget="badge"
+               decoration-success="invoicing_status == 'invoiced'"
+               decoration-info="invoicing_status == 'no'"/>
       </list>
     </field>
   </record>
-  
-  <!-- Formulario de service.order -->
+
+  <!-- =========================================================
+       VISTA FORMULARIO
+       ========================================================= -->
   <record id="view_service_order_form" model="ir.ui.view">
     <field name="name">service.order.form</field>
     <field name="model">service.order</field>
     <field name="type">form</field>
     <field name="arch" type="xml">
       <form string="Orden de Servicio">
+
         <header>
           <button name="action_confirm"
                   string="Confirmar"
                   type="object"
                   class="btn-primary"
                   invisible="state != 'draft'"/>
+
           <button name="action_set_done"
                   string="Marcar Completado"
                   type="object"
+                  class="btn-secondary"
                   invisible="state != 'confirmed'"/>
+
           <button name="action_cancel"
                   string="Cancelar"
                   type="object"
+                  class="btn-secondary"
                   invisible="state not in ['draft','confirmed']"/>
+
           <field name="state"
                  widget="statusbar"
-                 statusbar_visible="draft,confirmed,done,cancel"
-                 statusbar_colors='{"draft":"blue","confirmed":"orange","done":"green","cancel":"red"}'/>
+                 statusbar_visible="draft,confirmed,done,cancel"/>
         </header>
+
         <sheet>
-          <!-- NUEVO: Widget de estado en la parte superior -->
+          <widget name="web_ribbon" title="Borrador" bg_color="text-bg-info" invisible="state != 'draft'"/>
+          <widget name="web_ribbon" title="Confirmada" bg_color="text-bg-warning" invisible="state != 'confirmed'"/>
+          <widget name="web_ribbon" title="Completada" bg_color="text-bg-success" invisible="state != 'done'"/>
+          <widget name="web_ribbon" title="Cancelada" bg_color="text-bg-danger" invisible="state != 'cancel'"/>
+
+          <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status != 'invoiced'"/>
+
           <div class="oe_button_box" name="button_box">
             <button name="action_view_linked_invoices"
                     type="object"
@@ -78,82 +96,116 @@
               <field name="invoice_count" widget="statinfo" string="Facturas"/>
             </button>
           </div>
-          
-          <!-- NUEVO: Badge de estado de facturación -->
-          <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status != 'invoiced'"/>
-          
-          <!-- Campos principales divididos en dos columnas -->
-          <group col="2">
-            <group>
-              <field name="name"/>
-              <field name="sale_order_id"/>
-              <field name="partner_id"/>
-              <field name="date_order"/>
-              <!-- NUEVO: Campo de estado de facturación visible -->
-              <field name="invoicing_status" widget="badge" decoration-success="invoicing_status == 'invoiced'" decoration-info="invoicing_status == 'no'"/>
-            </group>
-            <group>
-              <field name="generador_id" string="Generador"/>
-              <field name="contact_name" string="Nombre de contacto"/>
-              <field name="contact_phone" string="Teléfono de contacto"/>
-              <field name="transportista_id" string="Transportista"/>
-              <field name="pickup_location" string="Ubicación de recolección"/>
-            </group>
-          </group>
-          <!-- Segunda fila de campos adicionales -->
-          <group col="2" class="mt16">
-            <group>
-              <field name="camion" string="Camión"/>
-              <field name="numero_placa" string="Número de Placa"/>
-              <field name="chofer_id" string="Chofer"/>
-              <field name="transportista_responsable" string="Responsable Transportista"/>
-            </group>
-            <group>
-              <field name="remolque1" string="Remolque 1"/>
-              <field name="remolque2" string="Remolque 2"/>
-              <field name="numero_bascula" string="Número de báscula"/>
-              <field name="generador_responsable" string="Responsable Generador"/>
-            </group>
-          </group>
-          <!-- Tercera fila para destinatario -->
-          <group col="2" class="mt16">
-            <group>
-              <field name="destinatario_id" string="Destinatario Final"/>
-            </group>
-            <group>
-              <!-- Espacio para más campos si es necesario -->
-            </group>
-          </group>
-          <!-- Notebook con Líneas de Servicio y Observaciones -->
+
+          <div class="oe_title">
+            <h1>
+              <field name="name" class="o_inline"/>
+            </h1>
+            <div class="text-muted">
+              <span>Orden de servicio vinculada a </span>
+              <field name="sale_order_id"
+                     class="o_inline"
+                     placeholder="Sin cotización"
+                     readonly="1"
+                     options="{'no_create': True}"/>
+            </div>
+          </div>
+
           <notebook>
-            <page string="Líneas de Servicio">
+            <page string="Resumen" name="page_summary">
+              <group>
+                <group string="Cliente y Referencias">
+                  <field name="partner_id" options="{'no_create': True}"/>
+                  <field name="generador_id" string="Generador" options="{'no_create': True}"/>
+                  
+                  <!-- FILTRO INTELIGENTE: Mostrar solo contactos del Generador seleccionado -->
+                  <field name="generador_responsable_id" 
+                         string="Responsable Generador" 
+                         options="{'no_create': True}"
+                         domain="[('id', 'child_of', generador_id)]"
+                         invisible="not generador_id"/>
+
+                  <field name="destinatario_id" string="Destinatario Final" options="{'no_create': True}"/>
+                  <field name="sale_order_id" string="Cotización" readonly="1" options="{'no_create': True}"/>
+                  <field name="date_order"/>
+                </group>
+
+                <group string="Contacto y Recolección">
+                  <field name="contact_name" string="Nombre de contacto"/>
+                  <field name="contact_phone" string="Teléfono de contacto"/>
+                  <field name="pickup_location" string="Ubicación de recolección" placeholder="Auto / manual..."/>
+                  
+                  <field name="transportista_id" string="Transportista" options="{'no_create': True}"/>
+                  
+                  <!-- FILTRO INTELIGENTE: Mostrar solo contactos del Transportista seleccionado -->
+                  <field name="transportista_responsable_id" 
+                         string="Responsable Transportista"
+                         options="{'no_create': True}"
+                         domain="[('id', 'child_of', transportista_id)]"
+                         invisible="not transportista_id"/>
+                </group>
+              </group>
+            </page>
+
+            <page string="Logística" name="page_logistics">
+              <group>
+                <group string="Unidad y Operador">
+                  <field name="camion" string="Camión"/>
+                  <field name="numero_placa" string="Placas"/>
+                  <field name="chofer_id" string="Chofer" options="{'no_create': True}"/>
+                </group>
+
+                <group string="Remolques y Báscula">
+                  <field name="remolque1" string="Remolque 1"/>
+                  <field name="remolque2" string="Remolque 2"/>
+                  <field name="numero_bascula" string="Número de báscula"/>
+                </group>
+              </group>
+            </page>
+
+            <page string="Líneas de Servicio" name="page_lines">
               <field name="line_ids">
                 <list editable="bottom">
-                  <!-- Campo product_id invisible pero necesario para las condiciones -->
                   <field name="product_id" column_invisible="1"/>
-                  <!-- Columna combinada: muestra producto o nota -->
+                  
+                  <!-- Campo oculto necesario para el widget monetary -->
+                  <field name="currency_id" column_invisible="1"/>
+                  
                   <field name="description" string="Residuo / Equivalente"/>
-                  <field name="residue_type"/>
-                  <field name="plan_manejo"/> 
+                  <field name="residue_type" string="Tipo"/>
+                  <field name="plan_manejo" string="Plan de Manejo"/>
                   <field name="packaging_id" string="Embalaje"/>
-                  <!-- NUEVO: Mostrar capacidad -->
+                  
+                  <!-- === NUEVA COLUMNA PRECIO === -->
+                  <field name="price_unit" 
+                         string="Precio Unitario" 
+                         widget="monetary"
+                         options="{'currency_field': 'currency_id'}"
+                         invisible="not product_id"/>
+                  <!-- ============================ -->
+
                   <field name="capacity" string="Capacidad" invisible="not product_id"/>
-                  <!-- Mostrar peso en kg -->
                   <field name="weight_kg" string="Peso (kg)" invisible="not product_id"/>
-                  <!-- Mostrar cantidad -->
                   <field name="product_uom_qty" string="Cantidad" invisible="not product_id"/>
                   <field name="product_uom" string="UoM" invisible="not product_id"/>
                 </list>
               </field>
             </page>
-            <page string="Observaciones">
-              <group>
-                <field name="observaciones" nolabel="1" placeholder="Ingrese observaciones adicionales..." widget="text"/>
+
+            <page string="Observaciones" name="page_notes">
+              <group string="Notas">
+                <field name="observaciones"
+                       nolabel="1"
+                       placeholder="Ingrese observaciones adicionales..."
+                       widget="text"/>
               </group>
             </page>
+
           </notebook>
+
         </sheet>
       </form>
     </field>
   </record>
+
 </odoo>

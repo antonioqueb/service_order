@@ -17,20 +17,17 @@ class SaleOrder(models.Model):
             'pickup_location': getattr(self, 'pickup_location', False),
         })
         
-        # 2) Copiar líneas - ahora propagando CORRECTAMENTE peso y capacidad
+        # 2) Copiar líneas
         for line in self.order_line:
             # Solo procesar líneas que NO sean notas y tengan producto
             if line.display_type != 'line_note' and line.product_id:
-                # Obtener el peso desde los campos de la línea de venta
                 weight_kg = 0.0
                 capacity = ""
                 
-                # Primero intentar desde los campos específicos de residuo en la línea
+                # Obtener peso
                 if hasattr(line, 'residue_weight_kg') and line.residue_weight_kg:
                     weight_kg = line.residue_weight_kg
-                # Si no, buscar en el lead relacionado
                 elif hasattr(self, 'opportunity_id') and self.opportunity_id:
-                    # Buscar el residuo que corresponde a este producto
                     residue = self.opportunity_id.residue_line_ids.filtered(
                         lambda r: r.product_id == line.product_id
                     )
@@ -38,19 +35,23 @@ class SaleOrder(models.Model):
                         weight_kg = residue[0].weight_kg
                         capacity = residue[0].capacity if hasattr(residue[0], 'capacity') else 0.0
                 
-                # Obtener capacidad desde la línea de venta
+                # Obtener capacidad
                 if hasattr(line, 'residue_capacity') and line.residue_capacity:
                     capacity = line.residue_capacity
                 
-                # Determinar la unidad de medida correcta
-                # Prioridad: 1) Embalaje, 2) UoM del producto, 3) UoM de la línea
-                uom_id = line.product_uom.id
-                if line.product_packaging_id:
-                    # Si hay embalaje, usar la UoM del producto base
-                    uom_id = line.product_id.uom_id.id
-                elif line.product_id.uom_id:
-                    uom_id = line.product_id.uom_id.id
+                # UoM
+                # Nota: en Odoo 19, product_uom_id es el campo correcto, no product_uom
+                uom_id = line.product_uom_id.id if hasattr(line, 'product_uom_id') else False
                 
+                # --- CORRECCIÓN ODOO 19 ---
+                # Obtener embalaje de manera segura (sale.order.line ya no tiene product_packaging_id)
+                packaging_id_val = False
+                
+                # Intentamos obtenerlo del campo custom que creamos en sale_crm_propagate
+                if hasattr(line, 'residue_packaging_id') and line.residue_packaging_id:
+                    packaging_id_val = line.residue_packaging_id.id
+                # --------------------------
+
                 vals = {
                     'service_order_id': service.id,
                     'product_id': line.product_id.id,
@@ -58,10 +59,13 @@ class SaleOrder(models.Model):
                     'product_uom_qty': line.product_uom_qty,
                     'product_uom': uom_id,
                     'weight_kg': weight_kg,
-                    'capacity': capacity,  # NUEVO: Propagar capacidad
-                    'packaging_id': line.product_packaging_id.id if line.product_packaging_id else False,
+                    'capacity': capacity,
+                    'packaging_id': packaging_id_val, # Apunta a uom.uom
                     'residue_type': getattr(line, 'residue_type', False),
                     'plan_manejo': getattr(line, 'plan_manejo', False),
+                    
+                    # === NUEVO: PASAR EL PRECIO ===
+                    'price_unit': line.price_unit,
                 }
                 self.env['service.order.line'].create(vals)
         

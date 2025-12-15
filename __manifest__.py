@@ -7,7 +7,8 @@
     'depends': ['sale', 'account'],
     'data': [
         'security/security.xml',                            # 0. Security groups first
-        'security/ir.model.access.csv',                     # 1. Access rights
+        'security/ir.model.access.csv',    
+        'data/service_order_sequence.xml',                 # 1. Access rights
         'views/service_order_views.xml',                    # 2. Vistas base (includes sequence)
         'reports/service_order_report.xml',                 # 3. Definición del reporte 
         'views/service_order_print_button.xml',             # 4. Botón que referencia el reporte

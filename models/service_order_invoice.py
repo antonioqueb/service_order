@@ -61,8 +61,11 @@ class ServiceOrder(models.Model):
                 # ========================================
                 # LÍNEA DE PRODUCTO
                 # ========================================
-                # Usar lst_price (precio de lista) del producto
-                price = line.product_id.lst_price or 0.0
+                
+                # === MODIFICADO: USAR EL PRECIO PACTADO ===
+                # Antes: price = line.product_id.lst_price or 0.0
+                price = line.price_unit
+                # ==========================================
                 
                 invoice_vals['invoice_line_ids'].append((0, 0, {
                     'product_id':     line.product_id.id,

@@ -24,22 +24,50 @@ class ServiceOrderLine(models.Model):
     product_uom_qty = fields.Float('Cantidad')
     product_uom = fields.Many2one('uom.uom', 'Unidad de Medida')
     
-    # Campo para almacenar el peso en kg desde el CRM lead
+    # =========================================================
+    # NUEVO: PRECIO Y MONEDA
+    # =========================================================
+    price_unit = fields.Float(
+        string='Precio Unitario',
+        digits='Product Price',
+        default=0.0
+    )
+    
+    # Campo auxiliar para saber la moneda (tomada de la cotización origen o de la compañía)
+    currency_id = fields.Many2one(
+        'res.currency',
+        string='Moneda',
+        compute='_compute_currency_id',
+        store=True
+    )
+
+    @api.depends('service_order_id.sale_order_id', 'service_order_id.sale_order_id.currency_id')
+    def _compute_currency_id(self):
+        for line in self:
+            if line.service_order_id.sale_order_id:
+                line.currency_id = line.service_order_id.sale_order_id.currency_id
+            else:
+                line.currency_id = line.env.company.currency_id
+    # =========================================================
+
     weight_kg = fields.Float(
         string='Peso Total (kg)',
         help='Peso total del residuo en kilogramos desde el lead/cotización'
     )
     
-    # NUEVO: Campo para capacidad en litros
     capacity = fields.Char(
         string='Capacidad',
         help='Capacidad del contenedor (ej: 100 L, 200 Kg, 50 CM³)'
     )
     
+    # --- CORRECCIÓN ODOO 19 ---
+    # Cambiado product.packaging por uom.uom
     packaging_id = fields.Many2one(
-        'product.packaging', 'Embalaje de Producto',
-        help='Tipo de embalaje asociado al producto'
+        'uom.uom', 'Embalaje de Producto',
+        help='Tipo de embalaje asociado al producto (gestionado como UoM en Odoo 19)'
     )
+    # --------------------------
+
     residue_type = fields.Selection(
         [('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
         'Tipo de Residuos'
@@ -59,7 +87,6 @@ class ServiceOrderLine(models.Model):
         help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
     )
 
-# ---------- Cálculos y validaciones ----------
     @api.depends('product_id', 'name')
     def _compute_description(self):
         for rec in self:
@@ -67,28 +94,34 @@ class ServiceOrderLine(models.Model):
     
     @api.onchange('product_id')
     def _onchange_product_id(self):
-        """Si quitamos el producto (es nota) dejamos qty vacía.
-        Si se selecciona un producto y no hay qty aún, ponemos 1."""
+        """Si quitamos el producto (es nota) dejamos qty vacía."""
         for rec in self:
             if rec.product_id:
                 if not rec.product_uom_qty:
                     rec.product_uom_qty = 1.0
                 rec.product_uom = rec.product_id.uom_id
-                # Buscar un embalaje por defecto para el producto
+                
+                # Si hay cambio de producto manual, sugerimos su precio de lista
+                # (Solo si no viene ya seteado de la venta)
+                if not rec.price_unit:
+                    rec.price_unit = rec.product_id.lst_price
+
+                # --- CORRECCIÓN ODOO 19 ---
                 if not rec.packaging_id:
-                    default_packaging = rec.product_id.packaging_ids.filtered('is_default')[:1]
-                    if not default_packaging:
-                        default_packaging = rec.product_id.packaging_ids[:1]
-                    rec.packaging_id = default_packaging
+                    # Búsqueda en uom.uom en lugar de packaging
+                    packagings = self.env['uom.uom'].search([
+                        ('product_id', '=', rec.product_id.id)
+                    ], limit=1)
+                    if packagings:
+                        rec.packaging_id = packagings
             else:
                 rec.product_uom_qty = False
                 rec.product_uom = False
                 rec.packaging_id = False
+                rec.price_unit = 0.0
     
     @api.constrains('product_id', 'product_uom_qty')
     def _check_qty_for_products(self):
-        """Obliga a poner cantidad > 0 cuando hay producto;
-        permite qty vacía cuando es nota."""
         for rec in self:
             if rec.product_id and (not rec.product_uom_qty or rec.product_uom_qty <= 0):
                 raise ValidationError(
