@@ -122,7 +122,6 @@
                   <field name="generador_responsable_id" 
                          string="Responsable Generador" 
                          options="{'no_create': True}"
-                         domain="[('id', 'child_of', generador_id)]"
                          invisible="not generador_id"/>
 
                   <field name="destinatario_id" string="Destinatario Final" options="{'no_create': True}"/>
@@ -141,7 +140,6 @@
                   <field name="transportista_responsable_id" 
                          string="Responsable Transportista"
                          options="{'no_create': True}"
-                         domain="[('id', 'child_of', transportista_id)]"
                          invisible="not transportista_id"/>
                 </group>
               </group>
