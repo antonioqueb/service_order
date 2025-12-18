@@ -70,15 +70,26 @@ class ServiceOrder(models.Model):
 
     observaciones = fields.Text(string='Observaciones')
 
-    service_frequency = fields.Selection(
-        [
-            ('unico', 'Único'),
-            ('semanal', 'Semanal'),
-            ('quincenal', 'Quincenal'),
-            ('mensual', 'Mensual'),
-        ],
-        string='Frecuencia del Servicio',
-    )
+    # CORRECCIÓN AQUÍ: Se agregan todas las opciones del CRM para evitar errores de validación
+    service_frequency = fields.Selection([
+        ('diaria', 'Diaria'),
+        ('2_veces_semana', '2 veces por semana'),
+        ('3_veces_semana', '3 veces por semana'),
+        ('semanal', 'Semanal'),
+        ('quincenal', 'Quincenal'),
+        ('mensual', 'Mensual'),
+        ('bimensual', 'Bimensual'),
+        ('trimestral', 'Trimestral'),
+        ('semestral', 'Semestral'),
+        ('anual', 'Anual'),
+        ('bajo_demanda', 'Bajo demanda'),
+        ('emergencia', 'Emergencia/Urgente'),
+        ('una_sola_vez', 'Una sola vez'),
+        ('estacional', 'Estacional'),
+        ('irregular', 'Irregular'),
+        # Mantenemos 'unico' por compatibilidad histórica si ya tenías registros
+        ('unico', 'Único'), 
+    ], string="Frecuencia del Servicio")
 
     residue_new = fields.Boolean(string='Residuo Nuevo')
     requiere_visita = fields.Boolean(string='Requiere Visita')
