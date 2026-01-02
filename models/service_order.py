@@ -70,7 +70,6 @@ class ServiceOrder(models.Model):
 
     observaciones = fields.Text(string='Observaciones')
 
-    # Frecuencia (mantener como estaba)
     service_frequency = fields.Selection([
         ('diaria', 'Diaria'),
         ('2_veces_semana', '2 veces por semana'),
@@ -103,7 +102,6 @@ class ServiceOrder(models.Model):
         tracking=True,
         help='Dirección/contacto seleccionado para la recolección (propagado desde la orden de venta).'
     )
-    # Campo legacy (no se elimina para no romper datos previos)
     pickup_location = fields.Char(
         string='Ubicación de Recolección (texto)',
         help='Campo legacy. Se mantiene por compatibilidad con órdenes antiguas.',
@@ -138,7 +136,7 @@ class ServiceOrder(models.Model):
         help='Selecciona un contacto existente del cliente.'
     )
 
-    # Legacy (se conserva) - ahora se PERSISTE de forma robusta al guardar
+    # OJO: compute store SIN depender de mobile (porque no existe en tu build)
     contact_name = fields.Char(
         string='Nombre de Contacto (legacy)',
         compute='_compute_contact_legacy',
@@ -180,7 +178,6 @@ class ServiceOrder(models.Model):
     bascula_1 = fields.Char(string='Báscula 1')
     bascula_2 = fields.Char(string='Báscula 2')
 
-    # Legacy (no se elimina para no romper datos)
     numero_bascula = fields.Char(
         string='Número de Báscula (legacy)',
         help='Campo legacy. Se mantiene por compatibilidad con órdenes antiguas.'
@@ -208,10 +205,6 @@ class ServiceOrder(models.Model):
         return self.env['res.partner.category'].sudo().search([('name', 'ilike', name)], limit=1)
 
     def _find_related_contact_with_tag(self, partner, tag_name):
-        """
-        Busca el primer contacto relacionado al cliente (hijos o el mismo) que tenga la etiqueta.
-        Si no existe, regresa False.
-        """
         if not partner:
             return False
         tag = self._get_partner_category_by_name(tag_name)
@@ -225,20 +218,18 @@ class ServiceOrder(models.Model):
         return self.env['res.partner'].sudo().search(domain, order='id asc', limit=1)
 
     def _is_partner_related_to_client(self, candidate, client):
-        """Valida si candidate es client o un hijo directo de client."""
         if not candidate or not client:
             return False
         return candidate.id == client.id or candidate.parent_id.id == client.id
 
     def _get_contact_phone_safe(self, partner):
-        """Obtiene teléfono robusto, sin tronar si `mobile` no existe."""
+        """Lee phone y, si existiera en algún entorno, mobile. En tu build mobile no existe, por eso getattr."""
         if not partner:
             return False
         mobile = getattr(partner, 'mobile', False)
         return partner.phone or mobile or False
 
     def _prepare_contact_legacy_vals(self, partner):
-        """Valores consistentes para legacy name/phone."""
         if not partner:
             return {}
         return {
@@ -254,14 +245,10 @@ class ServiceOrder(models.Model):
         'contact_partner_id.name',
         'contact_partner_id.display_name',
         'contact_partner_id.phone',
-        # Si el campo no existe en tu build, Odoo simplemente no lo toma como dependencia.
-        # Aun así, el método usa getattr para leerlo de forma segura.
-        'contact_partner_id.mobile',
     )
     def _compute_contact_legacy(self):
         """
-        Mantiene compatibilidad:
-        - Si hay contact_partner_id: siempre reflejar nombre/teléfono del contacto.
+        - Si hay contact_partner_id: reflejar nombre/teléfono.
         - Si NO hay contact_partner_id: NO borrar valores legacy existentes.
         """
         for rec in self:
@@ -270,7 +257,6 @@ class ServiceOrder(models.Model):
                 rec.contact_name = vals.get('contact_name')
                 rec.contact_phone = vals.get('contact_phone')
             else:
-                # No borrar históricos
                 rec.contact_name = rec.contact_name or False
                 rec.contact_phone = rec.contact_phone or False
 
@@ -279,10 +265,6 @@ class ServiceOrder(models.Model):
     # -------------------------------------------------------------------------
     @api.onchange('partner_id')
     def _onchange_partner_id_autofill(self):
-        """
-        - Autocompleta Generador por etiqueta "Generador" (si existe).
-        - Limpia campos seleccionados si ya no pertenecen al cliente.
-        """
         for rec in self:
             if not rec.partner_id:
                 rec.generador_id = False
@@ -291,27 +273,22 @@ class ServiceOrder(models.Model):
                 rec.pickup_location_id = False
                 return
 
-            # 1) Autocompletar generador por etiqueta
             gen = rec._find_related_contact_with_tag(rec.partner_id, 'Generador')
             rec.generador_id = gen.id if gen else False
 
-            # 2) Limpiar responsable generador si no corresponde al cliente
             if rec.generador_responsable_id and not rec._is_partner_related_to_client(rec.generador_responsable_id, rec.partner_id):
                 rec.generador_responsable_id = False
 
-            # 3) Limpiar contacto si no corresponde al cliente
             if rec.contact_partner_id and not rec._is_partner_related_to_client(rec.contact_partner_id, rec.partner_id):
                 rec.contact_partner_id = False
 
-            # 4) Limpiar pickup si no corresponde al cliente
             if rec.pickup_location_id and not rec._is_partner_related_to_client(rec.pickup_location_id, rec.partner_id):
                 rec.pickup_location_id = False
 
     @api.onchange('contact_partner_id')
     def _onchange_contact_partner_id(self):
         """
-        UI: llena en pantalla y muestra warning amigable si el contacto no tiene teléfono.
-        La persistencia se asegura en create/write y con compute store.
+        UX: muestra warning si no hay teléfono. La persistencia la garantiza create/write y compute store.
         """
         warning = False
         for rec in self:
@@ -319,7 +296,6 @@ class ServiceOrder(models.Model):
                 partner = rec.contact_partner_id
                 phone = rec._get_contact_phone_safe(partner)
 
-                # Forzar valores en el record (UX inmediata)
                 rec.contact_name = partner.name or partner.display_name or False
                 rec.contact_phone = phone
 
@@ -329,21 +305,15 @@ class ServiceOrder(models.Model):
                         'message': _(
                             'El contacto seleccionado "%(contact)s" no tiene teléfono registrado.\n\n'
                             'Sugerencia:\n'
-                            '• Abre el contacto y captura Teléfono (y/o Móvil), luego vuelve a seleccionarlo.'
+                            '• Abre el contacto y captura Teléfono, luego vuelve a seleccionarlo.'
                         ) % {'contact': partner.display_name}
                     }
-            else:
-                # No borramos legacy automáticamente
-                pass
 
         if warning:
             return {'warning': warning}
 
     @api.onchange('transportista_id')
     def _onchange_transportista_id(self):
-        """
-        Si cambia transportista, y el responsable ya no pertenece, lo limpia.
-        """
         for rec in self:
             if rec.transportista_responsable_id and rec.transportista_id:
                 ok = (rec.transportista_responsable_id.id == rec.transportista_id.id or
@@ -357,7 +327,6 @@ class ServiceOrder(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            # Secuencia
             if vals.get('name', _('New')) == _('New'):
                 seq_date = vals.get('date_order') or fields.Datetime.now()
                 vals['name'] = self.env['ir.sequence'].next_by_code(
@@ -365,13 +334,12 @@ class ServiceOrder(models.Model):
                     sequence_date=seq_date,
                 ) or _('New')
 
-            # Autocompletar generador si no viene y hay partner_id
             if vals.get('partner_id') and not vals.get('generador_id'):
                 partner = self.env['res.partner'].browse(vals['partner_id'])
                 gen = self._find_related_contact_with_tag(partner, 'Generador')
                 vals['generador_id'] = gen.id if gen else False
 
-            # PERSISTENCIA ROBUSTA: si viene contact_partner_id, guardar legacy SIEMPRE
+            # Persistencia SIEMPRE
             if vals.get('contact_partner_id'):
                 c = self.env['res.partner'].browse(vals['contact_partner_id'])
                 if c:
@@ -380,23 +348,22 @@ class ServiceOrder(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
-        """
-        PERSISTENCIA ROBUSTA:
-        - Si cambia contact_partner_id (o se setea), recalcular y persistir contact_name/contact_phone.
-        - Esto evita que el teléfono "se vea" en pantalla por onchange, pero se pierda al guardar.
-        """
+        # Persistencia robusta al guardar
         if 'contact_partner_id' in vals:
             if vals.get('contact_partner_id'):
                 partner = self.env['res.partner'].browse(vals['contact_partner_id'])
                 if partner.exists():
                     vals.update(self._prepare_contact_legacy_vals(partner))
             else:
-                # Si se limpia el contacto, NO borramos legacy automáticamente para no perder históricos
+                # No borrar legacy automáticamente
                 vals.pop('contact_name', None)
                 vals.pop('contact_phone', None)
 
         return super().write(vals)
 
+    # -------------------------------------------------------------------------
+    # ACTIONS
+    # -------------------------------------------------------------------------
     def action_confirm(self):
         self.write({'state': 'confirmed'})
 
