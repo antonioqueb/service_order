@@ -137,9 +137,20 @@ class ServiceOrder(models.Model):
         tracking=True,
         help='Selecciona un contacto existente del cliente.'
     )
-    # Legacy (se conserva para no perder reportes/uso histórico)
-    contact_name = fields.Char(string='Nombre de Contacto (legacy)')
-    contact_phone = fields.Char(string='Teléfono de Contacto (legacy)')
+
+    # Legacy (se conserva) - ahora se PERSISTE de forma robusta al guardar
+    contact_name = fields.Char(
+        string='Nombre de Contacto (legacy)',
+        compute='_compute_contact_legacy',
+        store=True,
+        readonly=False,
+    )
+    contact_phone = fields.Char(
+        string='Teléfono de Contacto (legacy)',
+        compute='_compute_contact_legacy',
+        store=True,
+        readonly=False,
+    )
 
     # =========================================================
     # TRANSPORTISTA
@@ -219,6 +230,50 @@ class ServiceOrder(models.Model):
             return False
         return candidate.id == client.id or candidate.parent_id.id == client.id
 
+    def _get_contact_phone_safe(self, partner):
+        """Obtiene teléfono robusto, sin tronar si `mobile` no existe."""
+        if not partner:
+            return False
+        mobile = getattr(partner, 'mobile', False)
+        return partner.phone or mobile or False
+
+    def _prepare_contact_legacy_vals(self, partner):
+        """Valores consistentes para legacy name/phone."""
+        if not partner:
+            return {}
+        return {
+            'contact_name': partner.name or partner.display_name or False,
+            'contact_phone': self._get_contact_phone_safe(partner),
+        }
+
+    # -------------------------------------------------------------------------
+    # COMPUTES (STORE)
+    # -------------------------------------------------------------------------
+    @api.depends(
+        'contact_partner_id',
+        'contact_partner_id.name',
+        'contact_partner_id.display_name',
+        'contact_partner_id.phone',
+        # Si el campo no existe en tu build, Odoo simplemente no lo toma como dependencia.
+        # Aun así, el método usa getattr para leerlo de forma segura.
+        'contact_partner_id.mobile',
+    )
+    def _compute_contact_legacy(self):
+        """
+        Mantiene compatibilidad:
+        - Si hay contact_partner_id: siempre reflejar nombre/teléfono del contacto.
+        - Si NO hay contact_partner_id: NO borrar valores legacy existentes.
+        """
+        for rec in self:
+            if rec.contact_partner_id:
+                vals = rec._prepare_contact_legacy_vals(rec.contact_partner_id)
+                rec.contact_name = vals.get('contact_name')
+                rec.contact_phone = vals.get('contact_phone')
+            else:
+                # No borrar históricos
+                rec.contact_name = rec.contact_name or False
+                rec.contact_phone = rec.contact_phone or False
+
     # -------------------------------------------------------------------------
     # ONCHANGES
     # -------------------------------------------------------------------------
@@ -255,24 +310,19 @@ class ServiceOrder(models.Model):
     @api.onchange('contact_partner_id')
     def _onchange_contact_partner_id(self):
         """
-        Mantiene compatibilidad: llena legacy contact_name/contact_phone con el contacto seleccionado.
-        Controla el caso donde no exista el campo `mobile` (según tu build) y muestra warning amigable
-        si el contacto no tiene teléfono.
+        UI: llena en pantalla y muestra warning amigable si el contacto no tiene teléfono.
+        La persistencia se asegura en create/write y con compute store.
         """
         warning = False
         for rec in self:
             if rec.contact_partner_id:
                 partner = rec.contact_partner_id
+                phone = rec._get_contact_phone_safe(partner)
 
-                # Nombre legacy
+                # Forzar valores en el record (UX inmediata)
                 rec.contact_name = partner.name or partner.display_name or False
-
-                # Teléfono robusto (evita AttributeError si `mobile` no existe)
-                mobile = getattr(partner, 'mobile', False)
-                phone = partner.phone or mobile or False
                 rec.contact_phone = phone
 
-                # Warning UI si no hay teléfono
                 if not phone:
                     warning = {
                         'title': _('Contacto sin teléfono'),
@@ -283,7 +333,7 @@ class ServiceOrder(models.Model):
                         ) % {'contact': partner.display_name}
                     }
             else:
-                # No forzamos borrar legacy por si el registro es antiguo
+                # No borramos legacy automáticamente
                 pass
 
         if warning:
@@ -321,16 +371,31 @@ class ServiceOrder(models.Model):
                 gen = self._find_related_contact_with_tag(partner, 'Generador')
                 vals['generador_id'] = gen.id if gen else False
 
-            # Compatibilidad: si viene contact_partner_id, llenar legacy
+            # PERSISTENCIA ROBUSTA: si viene contact_partner_id, guardar legacy SIEMPRE
             if vals.get('contact_partner_id'):
                 c = self.env['res.partner'].browse(vals['contact_partner_id'])
                 if c:
-                    vals.setdefault('contact_name', c.name or c.display_name or False)
-
-                    mobile = getattr(c, 'mobile', False)  # evita AttributeError
-                    vals.setdefault('contact_phone', c.phone or mobile or False)
+                    vals.update(self._prepare_contact_legacy_vals(c))
 
         return super().create(vals_list)
+
+    def write(self, vals):
+        """
+        PERSISTENCIA ROBUSTA:
+        - Si cambia contact_partner_id (o se setea), recalcular y persistir contact_name/contact_phone.
+        - Esto evita que el teléfono "se vea" en pantalla por onchange, pero se pierda al guardar.
+        """
+        if 'contact_partner_id' in vals:
+            if vals.get('contact_partner_id'):
+                partner = self.env['res.partner'].browse(vals['contact_partner_id'])
+                if partner.exists():
+                    vals.update(self._prepare_contact_legacy_vals(partner))
+            else:
+                # Si se limpia el contacto, NO borramos legacy automáticamente para no perder históricos
+                vals.pop('contact_name', None)
+                vals.pop('contact_phone', None)
+
+        return super().write(vals)
 
     def action_confirm(self):
         self.write({'state': 'confirmed'})
