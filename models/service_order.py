@@ -256,14 +256,38 @@ class ServiceOrder(models.Model):
     def _onchange_contact_partner_id(self):
         """
         Mantiene compatibilidad: llena legacy contact_name/contact_phone con el contacto seleccionado.
+        Controla el caso donde no exista el campo `mobile` (según tu build) y muestra warning amigable
+        si el contacto no tiene teléfono.
         """
+        warning = False
         for rec in self:
             if rec.contact_partner_id:
-                rec.contact_name = rec.contact_partner_id.name or False
-                rec.contact_phone = rec.contact_partner_id.phone or rec.contact_partner_id.mobile or False
+                partner = rec.contact_partner_id
+
+                # Nombre legacy
+                rec.contact_name = partner.name or partner.display_name or False
+
+                # Teléfono robusto (evita AttributeError si `mobile` no existe)
+                mobile = getattr(partner, 'mobile', False)
+                phone = partner.phone or mobile or False
+                rec.contact_phone = phone
+
+                # Warning UI si no hay teléfono
+                if not phone:
+                    warning = {
+                        'title': _('Contacto sin teléfono'),
+                        'message': _(
+                            'El contacto seleccionado "%(contact)s" no tiene teléfono registrado.\n\n'
+                            'Sugerencia:\n'
+                            '• Abre el contacto y captura Teléfono (y/o Móvil), luego vuelve a seleccionarlo.'
+                        ) % {'contact': partner.display_name}
+                    }
             else:
                 # No forzamos borrar legacy por si el registro es antiguo
                 pass
+
+        if warning:
+            return {'warning': warning}
 
     @api.onchange('transportista_id')
     def _onchange_transportista_id(self):
@@ -301,8 +325,10 @@ class ServiceOrder(models.Model):
             if vals.get('contact_partner_id'):
                 c = self.env['res.partner'].browse(vals['contact_partner_id'])
                 if c:
-                    vals.setdefault('contact_name', c.name or False)
-                    vals.setdefault('contact_phone', c.phone or c.mobile or False)
+                    vals.setdefault('contact_name', c.name or c.display_name or False)
+
+                    mobile = getattr(c, 'mobile', False)  # evita AttributeError
+                    vals.setdefault('contact_phone', c.phone or mobile or False)
 
         return super().create(vals_list)
 
