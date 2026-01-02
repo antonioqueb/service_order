@@ -70,7 +70,7 @@ class ServiceOrder(models.Model):
 
     observaciones = fields.Text(string='Observaciones')
 
-    # CORRECCIÓN AQUÍ: Se agregan todas las opciones del CRM para evitar errores de validación
+    # Frecuencia (mantener como estaba)
     service_frequency = fields.Selection([
         ('diaria', 'Diaria'),
         ('2_veces_semana', '2 veces por semana'),
@@ -87,34 +87,65 @@ class ServiceOrder(models.Model):
         ('una_sola_vez', 'Una sola vez'),
         ('estacional', 'Estacional'),
         ('irregular', 'Irregular'),
-        # Mantenemos 'unico' por compatibilidad histórica si ya tenías registros
-        ('unico', 'Único'), 
+        ('unico', 'Único'),
     ], string="Frecuencia del Servicio")
 
     residue_new = fields.Boolean(string='Residuo Nuevo')
     requiere_visita = fields.Boolean(string='Requiere Visita')
-    pickup_location = fields.Char(string='Ubicación de Recolección')
 
     # =========================================================
-    # ACTUALIZACIÓN: GENERADOR
+    # UBICACIÓN DE RECOLECCIÓN (NUEVO SELECT) + LEGACY
     # =========================================================
-    generador_id = fields.Many2one('res.partner', string='Generador')
-    
-    # Automatización: Si cambia el cliente, el generador es el mismo
-    @api.onchange('partner_id')
-    def _onchange_partner_id_set_generator(self):
-        if self.partner_id:
-            self.generador_id = self.partner_id
+    pickup_location_id = fields.Many2one(
+        'res.partner',
+        string='Ubicación de Recolección',
+        ondelete='set null',
+        tracking=True,
+        help='Dirección/contacto seleccionado para la recolección (propagado desde la orden de venta).'
+    )
+    # Campo legacy (no se elimina para no romper datos previos)
+    pickup_location = fields.Char(
+        string='Ubicación de Recolección (texto)',
+        help='Campo legacy. Se mantiene por compatibilidad con órdenes antiguas.',
+        tracking=False,
+    )
 
-    contact_name = fields.Char(string='Nombre de Contacto')
-    contact_phone = fields.Char(string='Teléfono de Contacto')
+    # =========================================================
+    # GENERADOR (AUTOFILL POR ETIQUETA "Generador")
+    # =========================================================
+    generador_id = fields.Many2one(
+        'res.partner',
+        string='Generador',
+        ondelete='set null',
+        tracking=True,
+        help='Contacto relacionado al cliente con etiqueta "Generador".'
+    )
+
+    generador_responsable_id = fields.Many2one(
+        'res.partner',
+        string='Responsable Generador',
+        help="Contacto en sitio del generador (filtrado por contactos del cliente)."
+    )
 
     # =========================================================
-    # ACTUALIZACIÓN: TRANSPORTISTA
+    # CONTACTO (SELECCIÓN POR CONTACTO DEL CLIENTE) + LEGACY
     # =========================================================
-    # Default: Asigna la empresa actual (Company Partner)
+    contact_partner_id = fields.Many2one(
+        'res.partner',
+        string='Nombre de Contacto',
+        ondelete='set null',
+        tracking=True,
+        help='Selecciona un contacto existente del cliente.'
+    )
+    # Legacy (se conserva para no perder reportes/uso histórico)
+    contact_name = fields.Char(string='Nombre de Contacto (legacy)')
+    contact_phone = fields.Char(string='Teléfono de Contacto (legacy)')
+
+    # =========================================================
+    # TRANSPORTISTA
+    # =========================================================
     transportista_id = fields.Many2one(
-        'res.partner', 
+        'res.partner',
         string='Transportista',
         default=lambda self: self.env.company.partner_id
     )
@@ -122,25 +153,28 @@ class ServiceOrder(models.Model):
     camion = fields.Char(string='Camión')
     numero_placa = fields.Char(string='Número de Placa')
     chofer_id = fields.Many2one('res.partner', string='Chofer')
-    
-    # =========================================================
-    # ACTUALIZACIÓN: RESPONSABLES (Ahora son Contactos/Many2one)
-    # =========================================================
+
     transportista_responsable_id = fields.Many2one(
-        'res.partner', 
+        'res.partner',
         string='Responsable Transportista',
-        help="Contacto administrativo o logístico de la empresa transportista"
-    )
-    
-    generador_responsable_id = fields.Many2one(
-        'res.partner', 
-        string='Responsable Generador',
-        help="Contacto en sitio del generador"
+        help="Contacto administrativo o logístico de la empresa transportista (filtrado por contactos del transportista)."
     )
 
     remolque1 = fields.Char(string='Remolque 1')
     remolque2 = fields.Char(string='Remolque 2')
-    numero_bascula = fields.Char(string='Número de Báscula')
+
+    # =========================================================
+    # BÁSCULAS (NUEVO) + LEGACY
+    # =========================================================
+    bascula_1 = fields.Char(string='Báscula 1')
+    bascula_2 = fields.Char(string='Báscula 2')
+
+    # Legacy (no se elimina para no romper datos)
+    numero_bascula = fields.Char(
+        string='Número de Báscula (legacy)',
+        help='Campo legacy. Se mantiene por compatibilidad con órdenes antiguas.'
+    )
+
     destinatario_id = fields.Many2one('res.partner', string='Destinatario Final')
 
     invoice_count = fields.Integer(
@@ -156,19 +190,119 @@ class ServiceOrder(models.Model):
         readonly=True,
     )
 
+    # -------------------------------------------------------------------------
+    # HELPERS
+    # -------------------------------------------------------------------------
+    def _get_partner_category_by_name(self, name):
+        return self.env['res.partner.category'].sudo().search([('name', 'ilike', name)], limit=1)
+
+    def _find_related_contact_with_tag(self, partner, tag_name):
+        """
+        Busca el primer contacto relacionado al cliente (hijos o el mismo) que tenga la etiqueta.
+        Si no existe, regresa False.
+        """
+        if not partner:
+            return False
+        tag = self._get_partner_category_by_name(tag_name)
+        if not tag:
+            return False
+
+        domain = [
+            ('category_id', 'in', [tag.id]),
+            '|', ('parent_id', '=', partner.id), ('id', '=', partner.id)
+        ]
+        return self.env['res.partner'].sudo().search(domain, order='id asc', limit=1)
+
+    def _is_partner_related_to_client(self, candidate, client):
+        """Valida si candidate es client o un hijo directo de client."""
+        if not candidate or not client:
+            return False
+        return candidate.id == client.id or candidate.parent_id.id == client.id
+
+    # -------------------------------------------------------------------------
+    # ONCHANGES
+    # -------------------------------------------------------------------------
+    @api.onchange('partner_id')
+    def _onchange_partner_id_autofill(self):
+        """
+        - Autocompleta Generador por etiqueta "Generador" (si existe).
+        - Limpia campos seleccionados si ya no pertenecen al cliente.
+        """
+        for rec in self:
+            if not rec.partner_id:
+                rec.generador_id = False
+                rec.generador_responsable_id = False
+                rec.contact_partner_id = False
+                rec.pickup_location_id = False
+                return
+
+            # 1) Autocompletar generador por etiqueta
+            gen = rec._find_related_contact_with_tag(rec.partner_id, 'Generador')
+            rec.generador_id = gen.id if gen else False
+
+            # 2) Limpiar responsable generador si no corresponde al cliente
+            if rec.generador_responsable_id and not rec._is_partner_related_to_client(rec.generador_responsable_id, rec.partner_id):
+                rec.generador_responsable_id = False
+
+            # 3) Limpiar contacto si no corresponde al cliente
+            if rec.contact_partner_id and not rec._is_partner_related_to_client(rec.contact_partner_id, rec.partner_id):
+                rec.contact_partner_id = False
+
+            # 4) Limpiar pickup si no corresponde al cliente
+            if rec.pickup_location_id and not rec._is_partner_related_to_client(rec.pickup_location_id, rec.partner_id):
+                rec.pickup_location_id = False
+
+    @api.onchange('contact_partner_id')
+    def _onchange_contact_partner_id(self):
+        """
+        Mantiene compatibilidad: llena legacy contact_name/contact_phone con el contacto seleccionado.
+        """
+        for rec in self:
+            if rec.contact_partner_id:
+                rec.contact_name = rec.contact_partner_id.name or False
+                rec.contact_phone = rec.contact_partner_id.phone or rec.contact_partner_id.mobile or False
+            else:
+                # No forzamos borrar legacy por si el registro es antiguo
+                pass
+
+    @api.onchange('transportista_id')
+    def _onchange_transportista_id(self):
+        """
+        Si cambia transportista, y el responsable ya no pertenece, lo limpia.
+        """
+        for rec in self:
+            if rec.transportista_responsable_id and rec.transportista_id:
+                ok = (rec.transportista_responsable_id.id == rec.transportista_id.id or
+                      rec.transportista_responsable_id.parent_id.id == rec.transportista_id.id)
+                if not ok:
+                    rec.transportista_responsable_id = False
+
+    # -------------------------------------------------------------------------
+    # CRUD
+    # -------------------------------------------------------------------------
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            # Secuencia
             if vals.get('name', _('New')) == _('New'):
                 seq_date = vals.get('date_order') or fields.Datetime.now()
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'service.order',
                     sequence_date=seq_date,
                 ) or _('New')
-            
-            # Lógica extra: si se crea sin generador, asignar el partner
+
+            # Autocompletar generador si no viene y hay partner_id
             if vals.get('partner_id') and not vals.get('generador_id'):
-                vals['generador_id'] = vals['partner_id']
+                partner = self.env['res.partner'].browse(vals['partner_id'])
+                gen = self._find_related_contact_with_tag(partner, 'Generador')
+                vals['generador_id'] = gen.id if gen else False
+
+            # Compatibilidad: si viene contact_partner_id, llenar legacy
+            if vals.get('contact_partner_id'):
+                c = self.env['res.partner'].browse(vals['contact_partner_id'])
+                if c:
+                    vals.setdefault('contact_name', c.name or False)
+                    vals.setdefault('contact_phone', c.phone or c.mobile or False)
 
         return super().create(vals_list)
 
@@ -181,6 +315,9 @@ class ServiceOrder(models.Model):
     def action_cancel(self):
         self.write({'state': 'cancel'})
 
+    # -------------------------------------------------------------------------
+    # INVOICES
+    # -------------------------------------------------------------------------
     @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type')
     def _compute_invoice_count(self):
         for order in self:

@@ -84,7 +84,6 @@
           <widget name="web_ribbon" title="Confirmada" bg_color="text-bg-warning" invisible="state != 'confirmed'"/>
           <widget name="web_ribbon" title="Completada" bg_color="text-bg-success" invisible="state != 'done'"/>
           <widget name="web_ribbon" title="Cancelada" bg_color="text-bg-danger" invisible="state != 'cancel'"/>
-
           <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status != 'invoiced'"/>
 
           <div class="oe_button_box" name="button_box">
@@ -115,32 +114,68 @@
             <page string="Resumen" name="page_summary">
               <group>
                 <group string="Cliente y Referencias">
-                  <field name="partner_id" options="{'no_create': True}"/>
-                  <field name="generador_id" string="Generador" options="{'no_create': True}"/>
-                  
-                  <!-- FILTRO INTELIGENTE: Mostrar solo contactos del Generador seleccionado -->
-                  <field name="generador_responsable_id" 
-                         string="Responsable Generador" 
-                         options="{'no_create': True}"
-                         invisible="not generador_id"/>
 
-                  <field name="destinatario_id" string="Destinatario Final" options="{'no_create': True}"/>
+                  <!-- Cliente inmutable cuando proviene de cotización -->
+                  <field name="partner_id"
+                         options="{'no_create': True}"
+                         readonly="sale_order_id"/>
+
+                  <!-- Generador: autofill por etiqueta Generador; mostrar solo contactos del cliente con esa etiqueta -->
+                  <field name="generador_id"
+                         options="{'no_create': True}"
+                         domain="[
+                           '&amp;',
+                             ('category_id.name', '=ilike', 'Generador'),
+                             '|', ('parent_id', '=', partner_id), ('id', '=', partner_id)
+                         ]"
+                         placeholder="(Sin contacto con etiqueta Generador)"/>
+
+                  <!-- Responsable Generador: SOLO contactos del cliente -->
+                  <field name="generador_responsable_id"
+                         options="{'no_create': True}"
+                         domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
+                         placeholder="Seleccionar contacto del cliente..."/>
+
+                  <!-- Destinatario final: propagado desde venta; solo etiqueta Destino Final -->
+                  <field name="destinatario_id"
+                         options="{'no_create': True}"
+                         domain="[('category_id.name', '=ilike', 'Destino Final')]"
+                         placeholder="Seleccionar destinatario final..."/>
+
                   <field name="sale_order_id" string="Cotización" readonly="1" options="{'no_create': True}"/>
                   <field name="date_order"/>
+
                 </group>
 
                 <group string="Contacto y Recolección">
-                  <field name="contact_name" string="Nombre de contacto"/>
-                  <field name="contact_phone" string="Teléfono de contacto"/>
-                  <field name="pickup_location" string="Ubicación de recolección" placeholder="Auto / manual..."/>
-                  
-                  <field name="transportista_id" string="Transportista" options="{'no_create': True}"/>
-                  
-                  <!-- FILTRO INTELIGENTE: Mostrar solo contactos del Transportista seleccionado -->
-                  <field name="transportista_responsable_id" 
-                         string="Responsable Transportista"
+
+                  <!-- Nombre de contacto: select SOLO contactos del cliente -->
+                  <field name="contact_partner_id"
                          options="{'no_create': True}"
-                         invisible="not transportista_id"/>
+                         domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
+                         placeholder="Seleccionar contacto del cliente..."/>
+
+                  <!-- Teléfono: legacy (se llena desde el contacto), solo lectura para evitar captura manual -->
+                  <field name="contact_phone" readonly="1"
+                         placeholder="Se toma del contacto seleccionado"/>
+
+                  <!-- Ubicación de recolección: select propagado desde venta; SOLO contactos del cliente -->
+                  <field name="pickup_location_id"
+                         options="{'no_create': True}"
+                         domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
+                         placeholder="Seleccionar ubicación de recolección..."/>
+
+                  <!-- Legacy pickup text oculto por defecto (compatibilidad) -->
+                  <field name="pickup_location" invisible="1"/>
+
+                  <field name="transportista_id" string="Transportista" options="{'no_create': True}"/>
+
+                  <!-- Responsable Transportista: SOLO contactos del transportista -->
+                  <field name="transportista_responsable_id"
+                         options="{'no_create': True}"
+                         domain="['|', ('parent_id', '=', transportista_id), ('id', '=', transportista_id)]"
+                         placeholder="Seleccionar contacto del transportista..."/>
+
                 </group>
               </group>
             </page>
@@ -153,10 +188,16 @@
                   <field name="chofer_id" string="Chofer" options="{'no_create': True}"/>
                 </group>
 
-                <group string="Remolques y Báscula">
+                <group string="Remolques y Básculas">
                   <field name="remolque1" string="Remolque 1"/>
                   <field name="remolque2" string="Remolque 2"/>
-                  <field name="numero_bascula" string="Número de báscula"/>
+
+                  <!-- NUEVO -->
+                  <field name="bascula_1" string="Báscula 1"/>
+                  <field name="bascula_2" string="Báscula 2"/>
+
+                  <!-- Legacy oculto -->
+                  <field name="numero_bascula" invisible="1"/>
                 </group>
               </group>
             </page>
@@ -165,22 +206,18 @@
               <field name="line_ids">
                 <list editable="bottom">
                   <field name="product_id" column_invisible="1"/>
-                  
-                  <!-- Campo oculto necesario para el widget monetary -->
                   <field name="currency_id" column_invisible="1"/>
-                  
+
                   <field name="description" string="Residuo / Equivalente"/>
                   <field name="residue_type" string="Tipo"/>
                   <field name="plan_manejo" string="Plan de Manejo"/>
                   <field name="packaging_id" string="Embalaje"/>
-                  
-                  <!-- === NUEVA COLUMNA PRECIO === -->
-                  <field name="price_unit" 
-                         string="Precio Unitario" 
+
+                  <field name="price_unit"
+                         string="Precio Unitario"
                          widget="monetary"
                          options="{'currency_field': 'currency_id'}"
                          invisible="not product_id"/>
-                  <!-- ============================ -->
 
                   <field name="capacity" string="Capacidad" invisible="not product_id"/>
                   <field name="weight_kg" string="Peso (kg)" invisible="not product_id"/>
