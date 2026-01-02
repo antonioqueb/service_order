@@ -120,17 +120,21 @@
                          options="{'no_create': True}"
                          readonly="sale_order_id"/>
 
-                  <!-- Generador: autofill por etiqueta Generador; mostrar solo contactos del cliente con esa etiqueta -->
+                  <!--
+                    Generador:
+                    - SOLO contactos relacionados al cliente principal (parent_id = partner_id o el mismo partner)
+                    - Y además con etiqueta/categoría "Generador"
+                  -->
                   <field name="generador_id"
                          options="{'no_create': True}"
                          domain="[
                            '&amp;',
-                             ('category_id.name', '=ilike', 'Generador'),
-                             '|', ('parent_id', '=', partner_id), ('id', '=', partner_id)
+                             '|', ('parent_id', '=', partner_id), ('id', '=', partner_id),
+                             ('category_id.name', 'ilike', 'Generador')
                          ]"
                          placeholder="(Sin contacto con etiqueta Generador)"/>
 
-                  <!-- Responsable Generador: SOLO contactos del cliente -->
+                  <!-- Responsable Generador: SOLO contactos relacionados al cliente -->
                   <field name="generador_responsable_id"
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
@@ -139,7 +143,7 @@
                   <!-- Destinatario final: propagado desde venta; solo etiqueta Destino Final -->
                   <field name="destinatario_id"
                          options="{'no_create': True}"
-                         domain="[('category_id.name', '=ilike', 'Destino Final')]"
+                         domain="[('category_id.name', 'ilike', 'Destino Final')]"
                          placeholder="Seleccionar destinatario final..."/>
 
                   <field name="sale_order_id" string="Cotización" readonly="1" options="{'no_create': True}"/>
