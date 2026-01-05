@@ -209,7 +209,7 @@
             <page string="Líneas de Servicio" name="page_lines">
               <field name="line_ids">
                 <list editable="bottom">
-                  <field name="product_id" column_invisible="1"/>
+                  <field name="product_id" string="Producto/Servicio" options="{'no_create': True}"/>
                   <field name="currency_id" column_invisible="1"/>
 
                   <field name="description" string="Residuo / Equivalente"/>
