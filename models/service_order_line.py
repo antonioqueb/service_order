@@ -82,6 +82,7 @@ class ServiceOrderLine(models.Model):
             ('confinamiento_controlado', 'Confinamiento Controlado'),
             ('reutilizacion', 'Reutilización'),
             ('destruccion_fiscal', 'Destrucción Fiscal'),
+            ('relleno_sanitario', 'Relleno Sanitario'),
         ],
         string="Plan de Manejo",
         help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
