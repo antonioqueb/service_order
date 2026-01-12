@@ -399,3 +399,39 @@ class ServiceOrder(models.Model):
             'domain': [('id', 'in', invoices.ids)],
             'context': {'create': False},
         }
+
+    # Agregar después del campo invoice_ids, antes de los helpers
+
+    # =========================================================
+    # CAMPOS PARA REPORTES
+    # =========================================================
+    amount_untaxed = fields.Monetary(
+        string='Subtotal',
+        compute='_compute_amounts',
+        store=True,
+        currency_field='currency_id',
+    )
+    currency_id = fields.Many2one(
+        'res.currency',
+        string='Moneda',
+        compute='_compute_currency_id',
+        store=True,
+    )
+
+    @api.depends('sale_order_id', 'sale_order_id.currency_id')
+    def _compute_currency_id(self):
+        for order in self:
+            if order.sale_order_id:
+                order.currency_id = order.sale_order_id.currency_id
+            else:
+                order.currency_id = order.env.company.currency_id
+
+    @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id')
+    def _compute_amounts(self):
+        for order in self:
+            total = sum(
+                line.price_unit * line.product_uom_qty
+                for line in order.line_ids
+                if line.product_id
+            )
+            order.amount_untaxed = total
