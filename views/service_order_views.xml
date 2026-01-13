@@ -39,8 +39,10 @@
                decoration-success="state == 'done'"
                decoration-danger="state == 'cancel'"/>
         <field name="invoicing_status" string="Facturación" widget="badge"
+               decoration-info="invoicing_status == 'no'"
+               decoration-warning="invoicing_status == 'draft'"
                decoration-success="invoicing_status == 'invoiced'"
-               decoration-info="invoicing_status == 'no'"/>
+               decoration-primary="invoicing_status == 'paid'"/>
         <field name="amount_untaxed" string="Total" sum="Total"/>
       </list>
     </field>
@@ -102,19 +104,19 @@
                   class="btn-secondary"
                   invisible="state != 'confirmed'"/>
 
-          <!-- CANCELAR: en borrador, confirmado o completado (si no está facturado) -->
+          <!-- CANCELAR: en borrador, confirmado o completado (si no hay facturas confirmadas) -->
           <button name="action_cancel"
                   string="Cancelar"
                   type="object"
                   class="btn-secondary"
-                  invisible="state not in ['draft', 'confirmed', 'done'] or invoicing_status == 'invoiced'"/>
+                  invisible="state not in ['draft', 'confirmed', 'done'] or invoicing_status in ['invoiced', 'paid']"/>
 
-          <!-- RESTABLECER A BORRADOR: desde cancelado, confirmado o done (si no está facturado) -->
+          <!-- RESTABLECER A BORRADOR: desde cancelado, confirmado o done (si no hay facturas confirmadas) -->
           <button name="action_set_draft"
                   string="Restablecer a Borrador"
                   type="object"
                   class="btn-secondary"
-                  invisible="state not in ['cancel', 'confirmed', 'done'] or invoicing_status == 'invoiced'"/>
+                  invisible="state not in ['cancel', 'confirmed', 'done'] or invoicing_status in ['invoiced', 'paid']"/>
 
           <field name="state"
                  widget="statusbar"
@@ -126,7 +128,11 @@
           <widget name="web_ribbon" title="Confirmada" bg_color="text-bg-warning" invisible="state != 'confirmed'"/>
           <widget name="web_ribbon" title="Completada" bg_color="text-bg-success" invisible="state != 'done'"/>
           <widget name="web_ribbon" title="Cancelada" bg_color="text-bg-danger" invisible="state != 'cancel'"/>
-          <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status != 'invoiced'"/>
+          
+          <!-- Ribbons de facturación (solo mostrar el más relevante) -->
+          <widget name="web_ribbon" title="Pagado" bg_color="text-bg-primary" invisible="invoicing_status != 'paid'"/>
+          <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status not in ['invoiced'] or invoicing_status == 'paid'"/>
+          <widget name="web_ribbon" title="Fact. Borrador" bg_color="text-bg-warning" invisible="invoicing_status != 'draft'"/>
 
           <div class="oe_button_box" name="button_box">
             <button name="action_view_linked_invoices"

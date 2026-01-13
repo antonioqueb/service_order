@@ -51,12 +51,14 @@ class ServiceOrder(models.Model):
     )
 
     # =========================================================
-    # INVOICING_STATUS AHORA ES COMPUTADO Y "VIVO"
+    # INVOICING_STATUS CON ESTADOS GRANULARES
     # =========================================================
     invoicing_status = fields.Selection(
         [
             ('no', 'No Facturado'),
+            ('draft', 'Factura Generada'),
             ('invoiced', 'Facturado'),
+            ('paid', 'Pagado'),
         ],
         string='Estado de Facturación',
         compute='_compute_invoicing_status',
@@ -218,26 +220,73 @@ class ServiceOrder(models.Model):
     # -------------------------------------------------------------------------
     # COMPUTES
     # -------------------------------------------------------------------------
-    @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type')
+    def _get_all_linked_invoices(self):
+        """
+        Obtiene todas las facturas vinculadas a esta orden.
+        Busca por service_order_id Y por invoice_origin (compatibilidad legacy).
+        """
+        self.ensure_one()
+        # Facturas vinculadas por el campo directo
+        invoices = self.invoice_ids.filtered(lambda inv: inv.move_type == 'out_invoice')
+        
+        # Buscar también por invoice_origin (legacy) si no hay facturas directas
+        if not invoices and self.name:
+            legacy_invoices = self.env['account.move'].search([
+                ('invoice_origin', '=', self.name),
+                ('move_type', '=', 'out_invoice'),
+            ])
+            if legacy_invoices:
+                invoices = legacy_invoices
+        
+        return invoices
+
+    @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type', 'invoice_ids.payment_state')
     def _compute_invoicing_status(self):
         """
-        Estado de facturación VIVO:
-        - 'invoiced' si existe al menos una factura posted (no cancelada)
-        - 'no' en cualquier otro caso
+        Estado de facturación VIVO con estados granulares:
+        - 'paid': Factura confirmada y pagada
+        - 'invoiced': Factura confirmada (posted)
+        - 'draft': Factura en borrador
+        - 'no': Sin factura o todas canceladas
         """
         for order in self:
-            active_invoices = order.invoice_ids.filtered(
-                lambda inv: inv.move_type == 'out_invoice' and inv.state == 'posted'
+            invoices = order._get_all_linked_invoices()
+            
+            # Filtrar solo las no canceladas
+            active_invoices = invoices.filtered(lambda inv: inv.state != 'cancel')
+            
+            if not active_invoices:
+                order.invoicing_status = 'no'
+                continue
+            
+            # Verificar si hay alguna pagada
+            paid_invoices = active_invoices.filtered(
+                lambda inv: inv.state == 'posted' and inv.payment_state in ('paid', 'in_payment', 'reversed')
             )
-            order.invoicing_status = 'invoiced' if active_invoices else 'no'
+            if paid_invoices:
+                order.invoicing_status = 'paid'
+                continue
+            
+            # Verificar si hay alguna confirmada (posted)
+            posted_invoices = active_invoices.filtered(lambda inv: inv.state == 'posted')
+            if posted_invoices:
+                order.invoicing_status = 'invoiced'
+                continue
+            
+            # Verificar si hay alguna en borrador
+            draft_invoices = active_invoices.filtered(lambda inv: inv.state == 'draft')
+            if draft_invoices:
+                order.invoicing_status = 'draft'
+                continue
+            
+            # Default
+            order.invoicing_status = 'no'
 
     @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type')
     def _compute_invoice_count(self):
         for order in self:
-            invoices = order.invoice_ids.filtered(
-                lambda inv: inv.move_type == 'out_invoice' and inv.state != 'cancel'
-            )
-            order.invoice_count = len(invoices)
+            invoices = order._get_all_linked_invoices()
+            order.invoice_count = len(invoices.filtered(lambda inv: inv.state != 'cancel'))
 
     @api.depends('sale_order_id', 'sale_order_id.currency_id')
     def _compute_currency_id(self):
@@ -310,6 +359,16 @@ class ServiceOrder(models.Model):
             'contact_name': partner.name or partner.display_name or False,
             'contact_phone': self._get_contact_phone_safe(partner),
         }
+    
+    def _has_blocking_invoices(self):
+        """
+        Verifica si hay facturas que bloquean acciones (posted o pagadas).
+        Facturas en borrador NO bloquean.
+        """
+        self.ensure_one()
+        invoices = self._get_all_linked_invoices()
+        blocking = invoices.filtered(lambda inv: inv.state == 'posted')
+        return bool(blocking)
 
     # -------------------------------------------------------------------------
     # ONCHANGES
@@ -416,16 +475,19 @@ class ServiceOrder(models.Model):
         self.write({'state': 'done'})
 
     def action_cancel(self):
+        for order in self:
+            if order._has_blocking_invoices():
+                raise UserError(_('No se puede cancelar una orden con facturas confirmadas. Cancele primero las facturas.'))
         self.write({'state': 'cancel'})
 
     def action_set_draft(self):
-        """Restablecer a borrador desde cancelado o confirmado"""
+        """Restablecer a borrador desde cancelado, confirmado o done"""
         for order in self:
             if order.state not in ('cancel', 'confirmed', 'done'):
                 raise UserError(_('Solo se pueden restablecer a borrador órdenes canceladas, confirmadas o completadas.'))
-            # Verificar que no haya facturas activas
-            if order.invoicing_status == 'invoiced':
-                raise UserError(_('No se puede restablecer a borrador una orden con facturas activas. Cancele primero las facturas.'))
+            # Solo bloquear si hay facturas confirmadas (posted), no borradores
+            if order._has_blocking_invoices():
+                raise UserError(_('No se puede restablecer a borrador una orden con facturas confirmadas. Cancele primero las facturas.'))
         self.write({'state': 'draft'})
 
     # -------------------------------------------------------------------------
@@ -433,7 +495,7 @@ class ServiceOrder(models.Model):
     # -------------------------------------------------------------------------
     def action_view_linked_invoices(self):
         self.ensure_one()
-        invoices = self.invoice_ids.filtered(lambda inv: inv.move_type == 'out_invoice')
+        invoices = self._get_all_linked_invoices()
 
         if not invoices:
             raise UserError(_('No hay facturas vinculadas a esta orden de servicio.'))
@@ -446,3 +508,11 @@ class ServiceOrder(models.Model):
             'domain': [('id', 'in', invoices.ids)],
             'context': {'create': False},
         }
+    
+    # -------------------------------------------------------------------------
+    # ACCIÓN PARA FORZAR RECÁLCULO (útil para migración)
+    # -------------------------------------------------------------------------
+    def action_recompute_invoicing_status(self):
+        """Fuerza el recálculo del estado de facturación"""
+        self._compute_invoicing_status()
+        return True
