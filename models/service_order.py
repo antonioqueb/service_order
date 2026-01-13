@@ -188,17 +188,24 @@ class ServiceOrder(models.Model):
 
     destinatario_id = fields.Many2one('res.partner', string='Destinatario Final')
 
+    # =========================================================
+    # FACTURACIÓN (ACTUALIZADO PARA MANY2MANY)
+    # =========================================================
+    
+    # Campo computado: No almacenamos la relación inversa one2many directa
+    # porque ahora AccountMove tiene un Many2many hacia nosotros.
+    invoice_ids = fields.Many2many(
+        'account.move',
+        string='Facturas',
+        compute='_compute_invoice_ids',
+        store=False, 
+        help="Facturas que contienen esta orden de servicio."
+    )
+
     invoice_count = fields.Integer(
         string='Número de Facturas',
         compute='_compute_invoice_count',
         store=False,
-    )
-
-    invoice_ids = fields.One2many(
-        'account.move',
-        'service_order_id',
-        string='Facturas',
-        readonly=True,
     )
 
     # =========================================================
@@ -223,31 +230,38 @@ class ServiceOrder(models.Model):
     def _get_all_linked_invoices(self):
         """
         Obtiene todas las facturas vinculadas a esta orden.
-        Busca por service_order_id Y por invoice_origin (compatibilidad legacy).
+        MODIFICADO: Busca en el campo Many2many 'service_order_ids' de account.move
+        Y mantiene compatibilidad legacy con invoice_origin.
         """
         self.ensure_one()
-        # Facturas vinculadas por el campo directo
-        invoices = self.invoice_ids.filtered(lambda inv: inv.move_type == 'out_invoice')
         
-        # Buscar también por invoice_origin (legacy) si no hay facturas directas
+        # 1. Búsqueda principal: Facturas que me tienen en su lista Many2many
+        invoices = self.env['account.move'].search([
+            ('service_order_ids', 'in', self.id),
+            ('move_type', '=', 'out_invoice')
+        ])
+        
+        # 2. Búsqueda Legacy: Por invoice_origin (si no hay relación directa)
         if not invoices and self.name:
             legacy_invoices = self.env['account.move'].search([
                 ('invoice_origin', '=', self.name),
                 ('move_type', '=', 'out_invoice'),
             ])
             if legacy_invoices:
-                invoices = legacy_invoices
+                invoices |= legacy_invoices
         
         return invoices
 
-    @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type', 'invoice_ids.payment_state')
+    @api.depends('name') # Se recalcula al acceder
+    def _compute_invoice_ids(self):
+        for rec in self:
+            rec.invoice_ids = rec._get_all_linked_invoices()
+
+    @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.payment_state')
     def _compute_invoicing_status(self):
         """
-        Estado de facturación VIVO con estados granulares:
-        - 'paid': Factura confirmada y pagada
-        - 'invoiced': Factura confirmada (posted)
-        - 'draft': Factura en borrador
-        - 'no': Sin factura o todas canceladas
+        Estado de facturación VIVO con estados granulares.
+        Recalcula basado en las facturas encontradas por _get_all_linked_invoices.
         """
         for order in self:
             invoices = order._get_all_linked_invoices()
@@ -282,7 +296,7 @@ class ServiceOrder(models.Model):
             # Default
             order.invoicing_status = 'no'
 
-    @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type')
+    @api.depends('invoice_ids')
     def _compute_invoice_count(self):
         for order in self:
             invoices = order._get_all_linked_invoices()
@@ -363,7 +377,6 @@ class ServiceOrder(models.Model):
     def _has_blocking_invoices(self):
         """
         Verifica si hay facturas que bloquean acciones (posted o pagadas).
-        Facturas en borrador NO bloquean.
         """
         self.ensure_one()
         invoices = self._get_all_linked_invoices()
@@ -510,7 +523,7 @@ class ServiceOrder(models.Model):
         }
     
     # -------------------------------------------------------------------------
-    # ACCIÓN PARA FORZAR RECÁLCULO (útil para migración)
+    # ACCIÓN PARA FORZAR RECÁLCULO
     # -------------------------------------------------------------------------
     def action_recompute_invoicing_status(self):
         """Fuerza el recálculo del estado de facturación"""

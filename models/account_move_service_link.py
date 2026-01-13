@@ -2,33 +2,35 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
-
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
-    service_order_id = fields.Many2one(
+    # Cambiamos a Many2many para soportar múltiples órdenes en una factura
+    service_order_ids = fields.Many2many(
         'service.order',
-        string='Orden de Servicio Origen',
+        'account_move_service_order_rel', # Nombre tabla intermedia explícito
+        'move_id',
+        'service_order_id',
+        string='Órdenes de Servicio Origen',
         readonly=False,
         copy=False,
-        help='Orden de Servicio origen de esta factura',
+        help='Órdenes de Servicio origen de esta factura',
         tracking=True,
-        states={'posted': [('readonly', True)], 'cancel': [('readonly', True)]}
     )
 
     def write(self, vals):
         # Prevenir cambio de orden de servicio en facturas no en borrador
-        if 'service_order_id' in vals:
+        if 'service_order_ids' in vals:
             for move in self:
-                if move.state in ('posted', 'cancel') and move.service_order_id and vals['service_order_id'] != move.service_order_id.id:
-                    raise UserError(_('No se puede cambiar la orden de servicio de una factura confirmada o cancelada.'))
+                if move.state in ('posted', 'cancel'):
+                    raise UserError(_('No se pueden modificar las órdenes de servicio de una factura confirmada o cancelada.'))
 
         return super(AccountMove, self).write(vals)
 
     def unlink(self):
         """
         Al eliminar facturas, el campo computado invoicing_status
-        de la orden de servicio se recalculará automáticamente.
+        de las órdenes de servicio se recalculará automáticamente.
         """
         return super(AccountMove, self).unlink()
 

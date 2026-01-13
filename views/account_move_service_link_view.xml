@@ -4,9 +4,9 @@
     <field name="model">account.move</field>
     <field name="inherit_id" ref="account.view_move_form"/>
     <field name="arch" type="xml">
-      <!-- Después de invoice_origin mostramos nuestro campo -->
+      <!-- Después de invoice_origin mostramos nuestro campo Many2many -->
       <xpath expr="//group[@name='sale_info_group']/field[@name='invoice_origin']" position="after">
-        <field name="service_order_id" readonly="1"/>
+        <field name="service_order_ids" widget="many2many_tags" readonly="1"/>
       </xpath>
     </field>
   </record>
