@@ -97,47 +97,44 @@ class ServiceOrder(models.Model):
     requiere_visita = fields.Boolean(string='Requiere Visita')
 
     # =========================================================
-    # UBICACIÓN DE RECOLECCIÓN (NUEVO SELECT) + LEGACY
+    # UBICACIÓN DE RECOLECCIÓN
     # =========================================================
     pickup_location_id = fields.Many2one(
         'res.partner',
         string='Ubicación de Recolección',
         ondelete='set null',
         tracking=True,
-        help='Dirección/contacto seleccionado para la recolección (propagado desde la orden de venta).'
+        help='Dirección/contacto seleccionado para la recolección.'
     )
     pickup_location = fields.Char(
         string='Ubicación de Recolección (texto)',
-        help='Campo legacy. Se mantiene por compatibilidad con órdenes antiguas.',
+        help='Campo legacy.',
         tracking=False,
     )
 
     # =========================================================
-    # GENERADOR (AUTOFILL POR ETIQUETA "Generador")
+    # GENERADOR
     # =========================================================
     generador_id = fields.Many2one(
         'res.partner',
         string='Generador',
         ondelete='set null',
         tracking=True,
-        help='Contacto relacionado al cliente con etiqueta "Generador".'
     )
 
     generador_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Generador',
-        help="Contacto en sitio del generador (filtrado por contactos del cliente)."
     )
 
     # =========================================================
-    # CONTACTO (SELECCIÓN POR CONTACTO DEL CLIENTE) + LEGACY
+    # CONTACTO
     # =========================================================
     contact_partner_id = fields.Many2one(
         'res.partner',
         string='Nombre de Contacto',
         ondelete='set null',
         tracking=True,
-        help='Selecciona un contacto existente del cliente.'
     )
 
     contact_name = fields.Char(
@@ -154,7 +151,7 @@ class ServiceOrder(models.Model):
     )
 
     # =========================================================
-    # TRANSPORTISTA
+    # TRANSPORTISTA Y LOGÍSTICA
     # =========================================================
     transportista_id = fields.Many2one(
         'res.partner',
@@ -169,37 +166,30 @@ class ServiceOrder(models.Model):
     transportista_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Transportista',
-        help="Contacto administrativo o logístico de la empresa transportista (filtrado por contactos del transportista)."
     )
 
     remolque1 = fields.Char(string='Remolque 1')
     remolque2 = fields.Char(string='Remolque 2')
 
-    # =========================================================
-    # BÁSCULAS (NUEVO) + LEGACY
-    # =========================================================
     bascula_1 = fields.Char(string='Báscula 1')
     bascula_2 = fields.Char(string='Báscula 2')
-
-    numero_bascula = fields.Char(
-        string='Número de Báscula (legacy)',
-        help='Campo legacy. Se mantiene por compatibilidad con órdenes antiguas.'
-    )
+    numero_bascula = fields.Char(string='Número de Báscula (legacy)')
 
     destinatario_id = fields.Many2one('res.partner', string='Destinatario Final')
 
     # =========================================================
-    # FACTURACIÓN (ACTUALIZADO PARA MANY2MANY)
+    # FACTURACIÓN (CORREGIDO: MANY2MANY REAL)
     # =========================================================
     
-    # Campo computado: No almacenamos la relación inversa one2many directa
-    # porque ahora AccountMove tiene un Many2many hacia nosotros.
+    # Definimos la relación inversa EXACTA a la que definimos en account.move
+    # Esto permite que Odoo maneje la base de datos correctamente sin errores de "not stored".
     invoice_ids = fields.Many2many(
         'account.move',
+        'account_move_service_order_rel', # Nombre tabla intermedia (DEBE coincidir con el de account.move)
+        'service_order_id',               # Columna de este modelo
+        'move_id',                        # Columna del otro modelo
         string='Facturas',
-        compute='_compute_invoice_ids',
-        store=False, 
-        help="Facturas que contienen esta orden de servicio."
+        readonly=True,
     )
 
     invoice_count = fields.Integer(
@@ -209,7 +199,7 @@ class ServiceOrder(models.Model):
     )
 
     # =========================================================
-    # CAMPOS PARA REPORTES
+    # CAMPOS FINANCIEROS
     # =========================================================
     amount_untaxed = fields.Monetary(
         string='Subtotal',
@@ -229,39 +219,30 @@ class ServiceOrder(models.Model):
     # -------------------------------------------------------------------------
     def _get_all_linked_invoices(self):
         """
-        Obtiene todas las facturas vinculadas a esta orden.
-        MODIFICADO: Busca en el campo Many2many 'service_order_ids' de account.move
-        Y mantiene compatibilidad legacy con invoice_origin.
+        Obtiene facturas reales (Many2many) + facturas legacy (origen).
         """
         self.ensure_one()
         
-        # 1. Búsqueda principal: Facturas que me tienen en su lista Many2many
-        invoices = self.env['account.move'].search([
-            ('service_order_ids', 'in', self.id),
-            ('move_type', '=', 'out_invoice')
-        ])
+        # 1. Facturas vinculadas correctamente por el nuevo sistema Many2many
+        invoices = self.invoice_ids
         
-        # 2. Búsqueda Legacy: Por invoice_origin (si no hay relación directa)
-        if not invoices and self.name:
+        # 2. Búsqueda Legacy: Por invoice_origin (si existen facturas viejas sin el vínculo relacional)
+        if self.name:
             legacy_invoices = self.env['account.move'].search([
                 ('invoice_origin', '=', self.name),
                 ('move_type', '=', 'out_invoice'),
+                ('id', 'not in', invoices.ids) # Evitar duplicados
             ])
             if legacy_invoices:
                 invoices |= legacy_invoices
         
         return invoices
 
-    @api.depends('name') # Se recalcula al acceder
-    def _compute_invoice_ids(self):
-        for rec in self:
-            rec.invoice_ids = rec._get_all_linked_invoices()
-
     @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.payment_state')
     def _compute_invoicing_status(self):
         """
-        Estado de facturación VIVO con estados granulares.
-        Recalcula basado en las facturas encontradas por _get_all_linked_invoices.
+        Estado de facturación. Ahora depende de 'invoice_ids' de forma segura
+        porque invoice_ids es un campo almacenado (relacional).
         """
         for order in self:
             invoices = order._get_all_linked_invoices()
@@ -375,9 +356,6 @@ class ServiceOrder(models.Model):
         }
     
     def _has_blocking_invoices(self):
-        """
-        Verifica si hay facturas que bloquean acciones (posted o pagadas).
-        """
         self.ensure_one()
         invoices = self._get_all_linked_invoices()
         blocking = invoices.filtered(lambda inv: inv.state == 'posted')
