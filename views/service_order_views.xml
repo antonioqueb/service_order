@@ -88,23 +88,33 @@
       <form string="Orden de Servicio">
 
         <header>
+          <!-- CONFIRMAR: solo en borrador -->
           <button name="action_confirm"
                   string="Confirmar"
                   type="object"
                   class="btn-primary"
                   invisible="state != 'draft'"/>
 
+          <!-- MARCAR COMPLETADO: solo en confirmado -->
           <button name="action_set_done"
                   string="Marcar Completado"
                   type="object"
                   class="btn-secondary"
                   invisible="state != 'confirmed'"/>
 
+          <!-- CANCELAR: en borrador, confirmado o completado (si no está facturado) -->
           <button name="action_cancel"
                   string="Cancelar"
                   type="object"
                   class="btn-secondary"
-                  invisible="state not in ['draft','confirmed']"/>
+                  invisible="state not in ['draft', 'confirmed', 'done'] or invoicing_status == 'invoiced'"/>
+
+          <!-- RESTABLECER A BORRADOR: desde cancelado, confirmado o done (si no está facturado) -->
+          <button name="action_set_draft"
+                  string="Restablecer a Borrador"
+                  type="object"
+                  class="btn-secondary"
+                  invisible="state not in ['cancel', 'confirmed', 'done'] or invoicing_status == 'invoiced'"/>
 
           <field name="state"
                  widget="statusbar"
@@ -147,16 +157,10 @@
               <group>
                 <group string="Cliente y Referencias">
 
-                  <!-- Cliente inmutable cuando proviene de cotización -->
                   <field name="partner_id"
                          options="{'no_create': True}"
                          readonly="sale_order_id"/>
 
-                  <!--
-                    Generador:
-                    - SOLO contactos relacionados al cliente principal (parent_id = partner_id o el mismo partner)
-                    - Y además con etiqueta/categoría "Generador"
-                  -->
                   <field name="generador_id"
                          options="{'no_create': True}"
                          domain="[
@@ -166,13 +170,11 @@
                          ]"
                          placeholder="(Sin contacto con etiqueta Generador)"/>
 
-                  <!-- Responsable Generador: SOLO contactos relacionados al cliente -->
                   <field name="generador_responsable_id"
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
                          placeholder="Seleccionar contacto del cliente..."/>
 
-                  <!-- Destinatario final: propagado desde venta; solo etiqueta Destino Final -->
                   <field name="destinatario_id"
                          options="{'no_create': True}"
                          domain="[('category_id.name', 'ilike', 'Destino Final')]"
@@ -185,28 +187,23 @@
 
                 <group string="Contacto y Recolección">
 
-                  <!-- Nombre de contacto: select SOLO contactos del cliente -->
                   <field name="contact_partner_id"
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
                          placeholder="Seleccionar contacto del cliente..."/>
 
-                  <!-- Teléfono: legacy (se llena desde el contacto), solo lectura para evitar captura manual -->
                   <field name="contact_phone" readonly="1"
                          placeholder="Se toma del contacto seleccionado"/>
 
-                  <!-- Ubicación de recolección: select propagado desde venta; SOLO contactos del cliente -->
                   <field name="pickup_location_id"
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
                          placeholder="Seleccionar ubicación de recolección..."/>
 
-                  <!-- Legacy pickup text oculto por defecto (compatibilidad) -->
                   <field name="pickup_location" invisible="1"/>
 
                   <field name="transportista_id" string="Transportista" options="{'no_create': True}"/>
 
-                  <!-- Responsable Transportista: SOLO contactos del transportista -->
                   <field name="transportista_responsable_id"
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', transportista_id), ('id', '=', transportista_id)]"
@@ -227,12 +224,8 @@
                 <group string="Remolques y Básculas">
                   <field name="remolque1" string="Remolque 1"/>
                   <field name="remolque2" string="Remolque 2"/>
-
-                  <!-- NUEVO -->
                   <field name="bascula_1" string="Báscula 1"/>
                   <field name="bascula_2" string="Báscula 2"/>
-
-                  <!-- Legacy oculto -->
                   <field name="numero_bascula" invisible="1"/>
                 </group>
               </group>
@@ -278,7 +271,5 @@
       </form>
     </field>
   </record>
-
-
 
 </odoo>

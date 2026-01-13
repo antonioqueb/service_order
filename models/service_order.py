@@ -50,16 +50,18 @@ class ServiceOrder(models.Model):
         tracking=True,
     )
 
+    # =========================================================
+    # INVOICING_STATUS AHORA ES COMPUTADO Y "VIVO"
+    # =========================================================
     invoicing_status = fields.Selection(
         [
             ('no', 'No Facturado'),
             ('invoiced', 'Facturado'),
         ],
         string='Estado de Facturación',
-        default='no',
-        readonly=True,
+        compute='_compute_invoicing_status',
+        store=True,
         tracking=True,
-        copy=False,
     )
 
     line_ids = fields.One2many(
@@ -136,7 +138,6 @@ class ServiceOrder(models.Model):
         help='Selecciona un contacto existente del cliente.'
     )
 
-    # OJO: compute store SIN depender de mobile (porque no existe en tu build)
     contact_name = fields.Char(
         string='Nombre de Contacto (legacy)',
         compute='_compute_contact_legacy',
@@ -198,6 +199,80 @@ class ServiceOrder(models.Model):
         readonly=True,
     )
 
+    # =========================================================
+    # CAMPOS PARA REPORTES
+    # =========================================================
+    amount_untaxed = fields.Monetary(
+        string='Subtotal',
+        compute='_compute_amounts',
+        store=True,
+        currency_field='currency_id',
+    )
+    currency_id = fields.Many2one(
+        'res.currency',
+        string='Moneda',
+        compute='_compute_currency_id',
+        store=True,
+    )
+
+    # -------------------------------------------------------------------------
+    # COMPUTES
+    # -------------------------------------------------------------------------
+    @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type')
+    def _compute_invoicing_status(self):
+        """
+        Estado de facturación VIVO:
+        - 'invoiced' si existe al menos una factura posted (no cancelada)
+        - 'no' en cualquier otro caso
+        """
+        for order in self:
+            active_invoices = order.invoice_ids.filtered(
+                lambda inv: inv.move_type == 'out_invoice' and inv.state == 'posted'
+            )
+            order.invoicing_status = 'invoiced' if active_invoices else 'no'
+
+    @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type')
+    def _compute_invoice_count(self):
+        for order in self:
+            invoices = order.invoice_ids.filtered(
+                lambda inv: inv.move_type == 'out_invoice' and inv.state != 'cancel'
+            )
+            order.invoice_count = len(invoices)
+
+    @api.depends('sale_order_id', 'sale_order_id.currency_id')
+    def _compute_currency_id(self):
+        for order in self:
+            if order.sale_order_id:
+                order.currency_id = order.sale_order_id.currency_id
+            else:
+                order.currency_id = order.env.company.currency_id
+
+    @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id')
+    def _compute_amounts(self):
+        for order in self:
+            total = sum(
+                line.price_unit * line.product_uom_qty
+                for line in order.line_ids
+                if line.product_id
+            )
+            order.amount_untaxed = total
+
+    @api.depends(
+        'contact_partner_id',
+        'contact_partner_id.name',
+        'contact_partner_id.display_name',
+        'contact_partner_id.phone',
+    )
+    def _compute_contact_legacy(self):
+        for rec in self:
+            if rec.contact_partner_id:
+                vals = rec._prepare_contact_legacy_vals(rec.contact_partner_id)
+                rec.contact_name = vals.get('contact_name')
+                rec.contact_phone = vals.get('contact_phone')
+            else:
+                rec.contact_name = rec.contact_name or False
+                rec.contact_phone = rec.contact_phone or False
+
     # -------------------------------------------------------------------------
     # HELPERS
     # -------------------------------------------------------------------------
@@ -223,7 +298,6 @@ class ServiceOrder(models.Model):
         return candidate.id == client.id or candidate.parent_id.id == client.id
 
     def _get_contact_phone_safe(self, partner):
-        """Lee phone y, si existiera en algún entorno, mobile. En tu build mobile no existe, por eso getattr."""
         if not partner:
             return False
         mobile = getattr(partner, 'mobile', False)
@@ -236,29 +310,6 @@ class ServiceOrder(models.Model):
             'contact_name': partner.name or partner.display_name or False,
             'contact_phone': self._get_contact_phone_safe(partner),
         }
-
-    # -------------------------------------------------------------------------
-    # COMPUTES (STORE)
-    # -------------------------------------------------------------------------
-    @api.depends(
-        'contact_partner_id',
-        'contact_partner_id.name',
-        'contact_partner_id.display_name',
-        'contact_partner_id.phone',
-    )
-    def _compute_contact_legacy(self):
-        """
-        - Si hay contact_partner_id: reflejar nombre/teléfono.
-        - Si NO hay contact_partner_id: NO borrar valores legacy existentes.
-        """
-        for rec in self:
-            if rec.contact_partner_id:
-                vals = rec._prepare_contact_legacy_vals(rec.contact_partner_id)
-                rec.contact_name = vals.get('contact_name')
-                rec.contact_phone = vals.get('contact_phone')
-            else:
-                rec.contact_name = rec.contact_name or False
-                rec.contact_phone = rec.contact_phone or False
 
     # -------------------------------------------------------------------------
     # ONCHANGES
@@ -287,9 +338,6 @@ class ServiceOrder(models.Model):
 
     @api.onchange('contact_partner_id')
     def _onchange_contact_partner_id(self):
-        """
-        UX: muestra warning si no hay teléfono. La persistencia la garantiza create/write y compute store.
-        """
         warning = False
         for rec in self:
             if rec.contact_partner_id:
@@ -339,7 +387,6 @@ class ServiceOrder(models.Model):
                 gen = self._find_related_contact_with_tag(partner, 'Generador')
                 vals['generador_id'] = gen.id if gen else False
 
-            # Persistencia SIEMPRE
             if vals.get('contact_partner_id'):
                 c = self.env['res.partner'].browse(vals['contact_partner_id'])
                 if c:
@@ -348,14 +395,12 @@ class ServiceOrder(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
-        # Persistencia robusta al guardar
         if 'contact_partner_id' in vals:
             if vals.get('contact_partner_id'):
                 partner = self.env['res.partner'].browse(vals['contact_partner_id'])
                 if partner.exists():
                     vals.update(self._prepare_contact_legacy_vals(partner))
             else:
-                # No borrar legacy automáticamente
                 vals.pop('contact_name', None)
                 vals.pop('contact_phone', None)
 
@@ -373,17 +418,19 @@ class ServiceOrder(models.Model):
     def action_cancel(self):
         self.write({'state': 'cancel'})
 
+    def action_set_draft(self):
+        """Restablecer a borrador desde cancelado o confirmado"""
+        for order in self:
+            if order.state not in ('cancel', 'confirmed', 'done'):
+                raise UserError(_('Solo se pueden restablecer a borrador órdenes canceladas, confirmadas o completadas.'))
+            # Verificar que no haya facturas activas
+            if order.invoicing_status == 'invoiced':
+                raise UserError(_('No se puede restablecer a borrador una orden con facturas activas. Cancele primero las facturas.'))
+        self.write({'state': 'draft'})
+
     # -------------------------------------------------------------------------
     # INVOICES
     # -------------------------------------------------------------------------
-    @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.move_type')
-    def _compute_invoice_count(self):
-        for order in self:
-            invoices = order.invoice_ids.filtered(
-                lambda inv: inv.move_type == 'out_invoice' and inv.state != 'cancel'
-            )
-            order.invoice_count = len(invoices)
-
     def action_view_linked_invoices(self):
         self.ensure_one()
         invoices = self.invoice_ids.filtered(lambda inv: inv.move_type == 'out_invoice')
@@ -399,39 +446,3 @@ class ServiceOrder(models.Model):
             'domain': [('id', 'in', invoices.ids)],
             'context': {'create': False},
         }
-
-    # Agregar después del campo invoice_ids, antes de los helpers
-
-    # =========================================================
-    # CAMPOS PARA REPORTES
-    # =========================================================
-    amount_untaxed = fields.Monetary(
-        string='Subtotal',
-        compute='_compute_amounts',
-        store=True,
-        currency_field='currency_id',
-    )
-    currency_id = fields.Many2one(
-        'res.currency',
-        string='Moneda',
-        compute='_compute_currency_id',
-        store=True,
-    )
-
-    @api.depends('sale_order_id', 'sale_order_id.currency_id')
-    def _compute_currency_id(self):
-        for order in self:
-            if order.sale_order_id:
-                order.currency_id = order.sale_order_id.currency_id
-            else:
-                order.currency_id = order.env.company.currency_id
-
-    @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id')
-    def _compute_amounts(self):
-        for order in self:
-            total = sum(
-                line.price_unit * line.product_uom_qty
-                for line in order.line_ids
-                if line.product_id
-            )
-            order.amount_untaxed = total
