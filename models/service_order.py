@@ -495,7 +495,7 @@ class ServiceOrder(models.Model):
             'name': _('Facturas Vinculadas'),
             'type': 'ir.actions.act_window',
             'res_model': 'account.move',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('id', 'in', invoices.ids)],
             'context': {'create': False},
         }
