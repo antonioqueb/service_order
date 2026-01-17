@@ -3,7 +3,7 @@
 
   <!-- =========================================================
        VISTA BÚSQUEDA (SEARCH)
-       DEBE IR PRIMERO para que la acción pueda referenciarla
+       NOTA: Debe ir antes de 'action_service_order'
        ========================================================= -->
   <record id="view_service_order_search" model="ir.ui.view">
     <field name="name">service.order.search</field>
@@ -29,7 +29,10 @@
         <separator/>
         <filter string="Pendiente Facturar" name="to_invoice" domain="[('invoicing_status', '=', 'no'), ('state', '=', 'done')]"/>
         <separator/>
-        <filter string="Fecha: Este Mes" name="this_month" date="date_order" default_period="this_month"/>
+        
+        <!-- CORRECCIÓN: Filtro de fecha estándar -->
+        <!-- Esto habilita el selector de periodos (Mes, Año, Trimestre) automáticamente -->
+        <filter string="Fecha" name="filter_date_order" date="date_order"/>
         
         <!-- Agrupadores (Group By) -->
           <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
@@ -44,7 +47,6 @@
 
   <!-- =========================================================
        ACCIÓN PRINCIPAL (WINDOW ACTION)
-       (Ahora sí encontrará el ID 'view_service_order_search')
        ========================================================= -->
   <record id="action_service_order" model="ir.actions.act_window">
     <field name="name">Órdenes de Servicio</field>
@@ -296,6 +298,10 @@
                   <field name="bascula_1" string="Báscula 1"/>
                   <field name="bascula_2" string="Báscula 2"/>
                   <field name="numero_bascula" invisible="1"/>
+                  
+                  <!-- Totales Calculados (Solo lectura) -->
+                  <field name="total_weight_kg" readonly="1" class="fw-bold"/>
+                  <field name="total_product_qty" readonly="1" class="fw-bold"/>
                 </group>
               </group>
             </page>
@@ -318,8 +324,8 @@
                          invisible="not product_id"/>
 
                   <field name="capacity" string="Capacidad" invisible="not product_id"/>
-                  <field name="weight_kg" string="Peso (kg)" invisible="not product_id"/>
-                  <field name="product_uom_qty" string="Cantidad" invisible="not product_id"/>
+                  <field name="weight_kg" string="Peso (kg)" sum="Total Kg" invisible="not product_id"/>
+                  <field name="product_uom_qty" string="Cantidad" sum="Total Cantidad" invisible="not product_id"/>
                   <field name="product_uom" string="UoM" invisible="not product_id"/>
                 </list>
               </field>
