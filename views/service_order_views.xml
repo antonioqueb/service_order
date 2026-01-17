@@ -2,48 +2,8 @@
 <odoo>
 
   <!-- =========================================================
-       ACCIÓN PRINCIPAL (WINDOW ACTION)
-       ========================================================= -->
-  <record id="action_service_order" model="ir.actions.act_window">
-    <field name="name">Órdenes de Servicio</field>
-    <field name="res_model">service.order</field>
-    <field name="view_mode">list,form,pivot,graph</field>
-    <!-- Referencia a la vista Search para activar los filtros y agrupadores -->
-    <field name="search_view_id" ref="view_service_order_search"/>
-    <field name="help" type="html">
-      <p class="o_view_nocontent_smiling_face">
-        Cree su primera Orden de Servicio
-      </p>
-    </field>
-  </record>
-
-  <!-- =========================================================
-       ACCIÓN DE SERVIDOR: FACTURACIÓN MASIVA
-       ========================================================= -->
-  <record id="action_service_order_mass_invoice" model="ir.actions.server">
-    <field name="name">Crear Factura</field>
-    <field name="model_id" ref="model_service_order"/>
-    <field name="binding_model_id" ref="model_service_order"/>
-    <field name="binding_view_types">list</field>
-    <field name="state">code</field>
-    <field name="code">
-      if records:
-          action = records.action_create_invoice()
-    </field>
-  </record>
-
-  <!-- =========================================================
-       MENÚ RAÍZ
-       ========================================================= -->
-  <record id="menu_service_order_root" model="ir.ui.menu">
-    <field name="name">Servicios</field>
-    <field name="sequence">10</field>
-    <field name="action" ref="action_service_order"/>
-    <field name="web_icon">service_order,static/description/icon.png</field>
-  </record>
-
-  <!-- =========================================================
-       VISTA BÚSQUEDA (SEARCH) - NECESARIA PARA AGRUPAR
+       VISTA BÚSQUEDA (SEARCH)
+       DEBE IR PRIMERO para que la acción pueda referenciarla
        ========================================================= -->
   <record id="view_service_order_search" model="ir.ui.view">
     <field name="name">service.order.search</field>
@@ -83,7 +43,49 @@
   </record>
 
   <!-- =========================================================
-       VISTA PIVOT (TABLA DINÁMICA) - ACTUALIZADA
+       ACCIÓN PRINCIPAL (WINDOW ACTION)
+       (Ahora sí encontrará el ID 'view_service_order_search')
+       ========================================================= -->
+  <record id="action_service_order" model="ir.actions.act_window">
+    <field name="name">Órdenes de Servicio</field>
+    <field name="res_model">service.order</field>
+    <field name="view_mode">list,form,pivot,graph</field>
+    <!-- Referencia a la vista Search -->
+    <field name="search_view_id" ref="view_service_order_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">
+        Cree su primera Orden de Servicio
+      </p>
+    </field>
+  </record>
+
+  <!-- =========================================================
+       ACCIÓN DE SERVIDOR: FACTURACIÓN MASIVA
+       ========================================================= -->
+  <record id="action_service_order_mass_invoice" model="ir.actions.server">
+    <field name="name">Crear Factura</field>
+    <field name="model_id" ref="model_service_order"/>
+    <field name="binding_model_id" ref="model_service_order"/>
+    <field name="binding_view_types">list</field>
+    <field name="state">code</field>
+    <field name="code">
+      if records:
+          action = records.action_create_invoice()
+    </field>
+  </record>
+
+  <!-- =========================================================
+       MENÚ RAÍZ
+       ========================================================= -->
+  <record id="menu_service_order_root" model="ir.ui.menu">
+    <field name="name">Servicios</field>
+    <field name="sequence">10</field>
+    <field name="action" ref="action_service_order"/>
+    <field name="web_icon">service_order,static/description/icon.png</field>
+  </record>
+
+  <!-- =========================================================
+       VISTA PIVOT (TABLA DINÁMICA)
        ========================================================= -->
   <record id="view_service_order_pivot" model="ir.ui.view">
     <field name="name">service.order.pivot</field>
@@ -152,7 +154,7 @@
   </record>
 
   <!-- =========================================================
-       VISTA FORMULARIO (Original Intacto)
+       VISTA FORMULARIO
        ========================================================= -->
   <record id="view_service_order_form" model="ir.ui.view">
     <field name="name">service.order.form</field>
@@ -162,28 +164,24 @@
       <form string="Orden de Servicio">
 
         <header>
-          <!-- CONFIRMAR: solo en borrador -->
           <button name="action_confirm"
                   string="Confirmar"
                   type="object"
                   class="btn-primary"
                   invisible="state != 'draft'"/>
 
-          <!-- MARCAR COMPLETADO: solo en confirmado -->
           <button name="action_set_done"
                   string="Marcar Completado"
                   type="object"
                   class="btn-secondary"
                   invisible="state != 'confirmed'"/>
 
-          <!-- CANCELAR: en borrador, confirmado o completado (si no hay facturas confirmadas) -->
           <button name="action_cancel"
                   string="Cancelar"
                   type="object"
                   class="btn-secondary"
                   invisible="state not in ['draft', 'confirmed', 'done'] or invoicing_status in ['invoiced', 'paid']"/>
 
-          <!-- RESTABLECER A BORRADOR: desde cancelado, confirmado o done (si no hay facturas confirmadas) -->
           <button name="action_set_draft"
                   string="Restablecer a Borrador"
                   type="object"
@@ -201,7 +199,6 @@
           <widget name="web_ribbon" title="Completada" bg_color="text-bg-success" invisible="state != 'done'"/>
           <widget name="web_ribbon" title="Cancelada" bg_color="text-bg-danger" invisible="state != 'cancel'"/>
           
-          <!-- Ribbons de facturación (solo mostrar el más relevante) -->
           <widget name="web_ribbon" title="Pagado" bg_color="text-bg-primary" invisible="invoicing_status != 'paid'"/>
           <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status not in ['invoiced'] or invoicing_status == 'paid'"/>
           <widget name="web_ribbon" title="Fact. Borrador" bg_color="text-bg-warning" invisible="invoicing_status != 'draft'"/>
@@ -234,10 +231,7 @@
             <page string="Resumen" name="page_summary">
               <group>
                 <group string="Cliente y Referencias">
-
-                  <field name="partner_id"
-                         options="{'no_create': True}"
-                         readonly="sale_order_id"/>
+                  <field name="partner_id" options="{'no_create': True}" readonly="sale_order_id"/>
 
                   <field name="generador_id"
                          options="{'no_create': True}"
@@ -260,11 +254,9 @@
 
                   <field name="sale_order_id" string="Cotización" readonly="1" options="{'no_create': True}"/>
                   <field name="date_order"/>
-
                 </group>
 
                 <group string="Contacto y Recolección">
-
                   <field name="contact_partner_id"
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
@@ -286,7 +278,6 @@
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', transportista_id), ('id', '=', transportista_id)]"
                          placeholder="Seleccionar contacto del transportista..."/>
-
                 </group>
               </group>
             </page>
