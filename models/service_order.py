@@ -178,16 +178,14 @@ class ServiceOrder(models.Model):
     destinatario_id = fields.Many2one('res.partner', string='Destinatario Final')
 
     # =========================================================
-    # FACTURACIÓN (CORREGIDO: MANY2MANY REAL)
+    # FACTURACIÓN
     # =========================================================
     
-    # Definimos la relación inversa EXACTA a la que definimos en account.move
-    # Esto permite que Odoo maneje la base de datos correctamente sin errores de "not stored".
     invoice_ids = fields.Many2many(
         'account.move',
-        'account_move_service_order_rel', # Nombre tabla intermedia (DEBE coincidir con el de account.move)
-        'service_order_id',               # Columna de este modelo
-        'move_id',                        # Columna del otro modelo
+        'account_move_service_order_rel', 
+        'service_order_id',               
+        'move_id',                        
         string='Facturas',
         readonly=True,
     )
@@ -199,20 +197,37 @@ class ServiceOrder(models.Model):
     )
 
     # =========================================================
-    # CAMPOS FINANCIEROS
+    # CAMPOS FINANCIEROS Y MÉTRICAS (Actualizado para Pivot)
     # =========================================================
-    amount_untaxed = fields.Monetary(
-        string='Subtotal',
-        compute='_compute_amounts',
-        store=True,
-        currency_field='currency_id',
-    )
     currency_id = fields.Many2one(
         'res.currency',
         string='Moneda',
         compute='_compute_currency_id',
         store=True,
     )
+
+    amount_untaxed = fields.Monetary(
+        string='Subtotal',
+        compute='_compute_amounts',
+        store=True,
+        currency_field='currency_id',
+    )
+
+    # --- NUEVOS CAMPOS PARA REPORTEAR ---
+    total_weight_kg = fields.Float(
+        string='Peso Total (Kg)',
+        compute='_compute_amounts',
+        store=True,
+        help="Suma total de los kilogramos de los residuos de esta orden."
+    )
+
+    total_product_qty = fields.Float(
+        string='Total Bultos/Items',
+        compute='_compute_amounts',
+        store=True,
+        help="Suma total de las cantidades (piezas, bultos, servicios) de esta orden."
+    )
+    # ------------------------------------
 
     # -------------------------------------------------------------------------
     # COMPUTES
@@ -240,10 +255,6 @@ class ServiceOrder(models.Model):
 
     @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.payment_state')
     def _compute_invoicing_status(self):
-        """
-        Estado de facturación. Ahora depende de 'invoice_ids' de forma segura
-        porque invoice_ids es un campo almacenado (relacional).
-        """
         for order in self:
             invoices = order._get_all_linked_invoices()
             
@@ -291,15 +302,26 @@ class ServiceOrder(models.Model):
             else:
                 order.currency_id = order.env.company.currency_id
 
-    @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id')
+    @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id', 'line_ids.weight_kg')
     def _compute_amounts(self):
+        """
+        Calcula Monto, Peso y Cantidad total.
+        """
         for order in self:
-            total = sum(
-                line.price_unit * line.product_uom_qty
-                for line in order.line_ids
-                if line.product_id
-            )
-            order.amount_untaxed = total
+            total_amount = 0.0
+            total_weight = 0.0
+            total_qty = 0.0
+
+            for line in order.line_ids:
+                if line.product_id:
+                    total_amount += line.price_unit * line.product_uom_qty
+                    total_qty += line.product_uom_qty
+                    # Sumamos el peso de la línea
+                    total_weight += line.weight_kg
+
+            order.amount_untaxed = total_amount
+            order.total_weight_kg = total_weight
+            order.total_product_qty = total_qty
 
     @api.depends(
         'contact_partner_id',

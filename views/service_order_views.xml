@@ -8,11 +8,17 @@
     <field name="name">Órdenes de Servicio</field>
     <field name="res_model">service.order</field>
     <field name="view_mode">list,form,pivot,graph</field>
+    <!-- Referencia a la vista Search para activar los filtros y agrupadores -->
+    <field name="search_view_id" ref="view_service_order_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">
+        Cree su primera Orden de Servicio
+      </p>
+    </field>
   </record>
 
   <!-- =========================================================
        ACCIÓN DE SERVIDOR: FACTURACIÓN MASIVA
-       (Aparece en el botón 'Acción' al seleccionar registros)
        ========================================================= -->
   <record id="action_service_order_mass_invoice" model="ir.actions.server">
     <field name="name">Crear Factura</field>
@@ -37,45 +43,63 @@
   </record>
 
   <!-- =========================================================
-       VISTA LISTA
+       VISTA BÚSQUEDA (SEARCH) - NECESARIA PARA AGRUPAR
        ========================================================= -->
-  <record id="view_service_order_list" model="ir.ui.view">
-    <field name="name">service.order.list</field>
+  <record id="view_service_order_search" model="ir.ui.view">
+    <field name="name">service.order.search</field>
     <field name="model">service.order</field>
-    <field name="type">list</field>
     <field name="arch" type="xml">
-      <list string="Órdenes de Servicio" default_order="date_order desc">
-        <field name="name" string="Folio" class="fw-bold"/>
-        <field name="date_order" string="Fecha"/>
+      <search string="Buscar Orden de Servicio">
+        <!-- Campos de búsqueda rápida -->
+        <field name="name" string="Folio"/>
         <field name="partner_id" string="Cliente"/>
-        <field name="sale_order_id" string="Cotización" readonly="1"/>
-        <field name="state" widget="badge"
-               decoration-info="state == 'draft'"
-               decoration-warning="state == 'confirmed'"
-               decoration-success="state == 'done'"
-               decoration-danger="state == 'cancel'"/>
-        <field name="invoicing_status" string="Facturación" widget="badge"
-               decoration-info="invoicing_status == 'no'"
-               decoration-warning="invoicing_status == 'draft'"
-               decoration-success="invoicing_status == 'invoiced'"
-               decoration-primary="invoicing_status == 'paid'"/>
-        <field name="amount_untaxed" string="Total" sum="Total"/>
-      </list>
+        <field name="sale_order_id"/>
+        <field name="transportista_id"/>
+        <field name="generador_id"/>
+
+        <separator/>
+
+        <!-- Filtros Rápidos -->
+        <filter string="Mis Órdenes" name="my_orders" domain="[('create_uid', '=', uid)]"/>
+        <separator/>
+        <filter string="Borrador" name="draft" domain="[('state', '=', 'draft')]"/>
+        <filter string="Confirmadas" name="confirmed" domain="[('state', '=', 'confirmed')]"/>
+        <filter string="Completadas" name="done" domain="[('state', '=', 'done')]"/>
+        <filter string="Canceladas" name="cancel" domain="[('state', '=', 'cancel')]"/>
+        <separator/>
+        <filter string="Pendiente Facturar" name="to_invoice" domain="[('invoicing_status', '=', 'no'), ('state', '=', 'done')]"/>
+        <separator/>
+        <filter string="Fecha: Este Mes" name="this_month" date="date_order" default_period="this_month"/>
+        
+        <!-- Agrupadores (Group By) -->
+          <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
+          <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
+          <filter string="Transportista" name="group_transportista" context="{'group_by': 'transportista_id'}"/>
+          <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+          <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
+          <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
+      </search>
     </field>
   </record>
 
   <!-- =========================================================
-       VISTA PIVOT (TABLA DINÁMICA)
+       VISTA PIVOT (TABLA DINÁMICA) - ACTUALIZADA
        ========================================================= -->
   <record id="view_service_order_pivot" model="ir.ui.view">
     <field name="name">service.order.pivot</field>
     <field name="model">service.order</field>
     <field name="arch" type="xml">
       <pivot string="Análisis de Órdenes de Servicio" sample="1">
-        <field name="date_order" type="row" interval="day"/>
+        <!-- Filas (Rows) -->
         <field name="partner_id" type="row"/>
-        <field name="state" type="col"/>
-        <field name="amount_untaxed" type="measure"/>
+        
+        <!-- Columnas (Cols) -->
+        <field name="date_order" interval="month" type="col"/>
+
+        <!-- Medidas (Valores numéricos) -->
+        <field name="total_weight_kg" type="measure" string="Peso (Kg)"/>
+        <field name="total_product_qty" type="measure" string="Bultos/Cant."/>
+        <field name="amount_untaxed" type="measure" string="Monto ($)"/>
       </pivot>
     </field>
   </record>
@@ -88,15 +112,47 @@
     <field name="model">service.order</field>
     <field name="arch" type="xml">
       <graph string="Ventas por Órdenes de Servicio" type="bar" sample="1">
-        <field name="date_order" interval="day"/>
-        <field name="amount_untaxed" type="measure"/>
+        <field name="date_order" interval="month"/>
+        <field name="total_weight_kg" type="measure"/>
       </graph>
     </field>
   </record>
 
+  <!-- =========================================================
+       VISTA LISTA
+       ========================================================= -->
+  <record id="view_service_order_list" model="ir.ui.view">
+    <field name="name">service.order.list</field>
+    <field name="model">service.order</field>
+    <field name="type">list</field>
+    <field name="arch" type="xml">
+      <list string="Órdenes de Servicio" default_order="date_order desc">
+        <field name="name" string="Folio" class="fw-bold"/>
+        <field name="date_order" string="Fecha"/>
+        <field name="partner_id" string="Cliente"/>
+        <field name="sale_order_id" string="Cotización" readonly="1"/>
+        
+        <!-- Nuevas Columnas (Opcionales) -->
+        <field name="total_weight_kg" string="Peso Total" sum="Total Peso" optional="show"/>
+        <field name="total_product_qty" string="Cant. Total" sum="Total Items" optional="hide"/>
+
+        <field name="state" widget="badge"
+               decoration-info="state == 'draft'"
+               decoration-warning="state == 'confirmed'"
+               decoration-success="state == 'done'"
+               decoration-danger="state == 'cancel'"/>
+        <field name="invoicing_status" string="Facturación" widget="badge"
+               decoration-info="invoicing_status == 'no'"
+               decoration-warning="invoicing_status == 'draft'"
+               decoration-success="invoicing_status == 'invoiced'"
+               decoration-primary="invoicing_status == 'paid'"/>
+        <field name="amount_untaxed" string="Monto Total" sum="Total"/>
+      </list>
+    </field>
+  </record>
 
   <!-- =========================================================
-       VISTA FORMULARIO
+       VISTA FORMULARIO (Original Intacto)
        ========================================================= -->
   <record id="view_service_order_form" model="ir.ui.view">
     <field name="name">service.order.form</field>
