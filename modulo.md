@@ -483,16 +483,14 @@ class ServiceOrder(models.Model):
     destinatario_id = fields.Many2one('res.partner', string='Destinatario Final')
 
     # =========================================================
-    # FACTURACIÓN (CORREGIDO: MANY2MANY REAL)
+    # FACTURACIÓN
     # =========================================================
     
-    # Definimos la relación inversa EXACTA a la que definimos en account.move
-    # Esto permite que Odoo maneje la base de datos correctamente sin errores de "not stored".
     invoice_ids = fields.Many2many(
         'account.move',
-        'account_move_service_order_rel', # Nombre tabla intermedia (DEBE coincidir con el de account.move)
-        'service_order_id',               # Columna de este modelo
-        'move_id',                        # Columna del otro modelo
+        'account_move_service_order_rel', 
+        'service_order_id',               
+        'move_id',                        
         string='Facturas',
         readonly=True,
     )
@@ -504,20 +502,37 @@ class ServiceOrder(models.Model):
     )
 
     # =========================================================
-    # CAMPOS FINANCIEROS
+    # CAMPOS FINANCIEROS Y MÉTRICAS (Actualizado para Pivot)
     # =========================================================
-    amount_untaxed = fields.Monetary(
-        string='Subtotal',
-        compute='_compute_amounts',
-        store=True,
-        currency_field='currency_id',
-    )
     currency_id = fields.Many2one(
         'res.currency',
         string='Moneda',
         compute='_compute_currency_id',
         store=True,
     )
+
+    amount_untaxed = fields.Monetary(
+        string='Subtotal',
+        compute='_compute_amounts',
+        store=True,
+        currency_field='currency_id',
+    )
+
+    # --- NUEVOS CAMPOS PARA REPORTEAR ---
+    total_weight_kg = fields.Float(
+        string='Peso Total (Kg)',
+        compute='_compute_amounts',
+        store=True,
+        help="Suma total de los kilogramos de los residuos de esta orden."
+    )
+
+    total_product_qty = fields.Float(
+        string='Total Items',
+        compute='_compute_amounts',
+        store=True,
+        help="Suma total de las cantidades (piezas, bultos, servicios) de esta orden."
+    )
+    # ------------------------------------
 
     # -------------------------------------------------------------------------
     # COMPUTES
@@ -545,10 +560,6 @@ class ServiceOrder(models.Model):
 
     @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.payment_state')
     def _compute_invoicing_status(self):
-        """
-        Estado de facturación. Ahora depende de 'invoice_ids' de forma segura
-        porque invoice_ids es un campo almacenado (relacional).
-        """
         for order in self:
             invoices = order._get_all_linked_invoices()
             
@@ -596,15 +607,26 @@ class ServiceOrder(models.Model):
             else:
                 order.currency_id = order.env.company.currency_id
 
-    @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id')
+    @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id', 'line_ids.weight_kg')
     def _compute_amounts(self):
+        """
+        Calcula Monto, Peso y Cantidad total.
+        """
         for order in self:
-            total = sum(
-                line.price_unit * line.product_uom_qty
-                for line in order.line_ids
-                if line.product_id
-            )
-            order.amount_untaxed = total
+            total_amount = 0.0
+            total_weight = 0.0
+            total_qty = 0.0
+
+            for line in order.line_ids:
+                if line.product_id:
+                    total_amount += line.price_unit * line.product_uom_qty
+                    total_qty += line.product_uom_qty
+                    # Sumamos el peso de la línea
+                    total_weight += line.weight_kg
+
+            order.amount_untaxed = total_amount
+            order.total_weight_kg = total_weight
+            order.total_product_qty = total_qty
 
     @api.depends(
         'contact_partner_id',
@@ -1511,17 +1533,67 @@ from . import service_order_report
 <odoo>
 
   <!-- =========================================================
+       VISTA BÚSQUEDA (SEARCH)
+       NOTA: Debe ir antes de 'action_service_order'
+       ========================================================= -->
+  <record id="view_service_order_search" model="ir.ui.view">
+    <field name="name">service.order.search</field>
+    <field name="model">service.order</field>
+    <field name="arch" type="xml">
+      <search string="Buscar Orden de Servicio">
+        <!-- Campos de búsqueda rápida -->
+        <field name="name" string="Folio"/>
+        <field name="partner_id" string="Cliente"/>
+        <field name="sale_order_id"/>
+        <field name="transportista_id"/>
+        <field name="generador_id"/>
+
+        <separator/>
+
+        <!-- Filtros Rápidos -->
+        <filter string="Mis Órdenes" name="my_orders" domain="[('create_uid', '=', uid)]"/>
+        <separator/>
+        <filter string="Borrador" name="draft" domain="[('state', '=', 'draft')]"/>
+        <filter string="Confirmadas" name="confirmed" domain="[('state', '=', 'confirmed')]"/>
+        <filter string="Completadas" name="done" domain="[('state', '=', 'done')]"/>
+        <filter string="Canceladas" name="cancel" domain="[('state', '=', 'cancel')]"/>
+        <separator/>
+        <filter string="Pendiente Facturar" name="to_invoice" domain="[('invoicing_status', '=', 'no'), ('state', '=', 'done')]"/>
+        <separator/>
+        
+        <!-- CORRECCIÓN: Filtro de fecha estándar -->
+        <!-- Esto habilita el selector de periodos (Mes, Año, Trimestre) automáticamente -->
+        <filter string="Fecha" name="filter_date_order" date="date_order"/>
+        
+        <!-- Agrupadores (Group By) -->
+          <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
+          <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
+          <filter string="Transportista" name="group_transportista" context="{'group_by': 'transportista_id'}"/>
+          <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+          <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
+          <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
+      </search>
+    </field>
+  </record>
+
+  <!-- =========================================================
        ACCIÓN PRINCIPAL (WINDOW ACTION)
        ========================================================= -->
   <record id="action_service_order" model="ir.actions.act_window">
     <field name="name">Órdenes de Servicio</field>
     <field name="res_model">service.order</field>
     <field name="view_mode">list,form,pivot,graph</field>
+    <!-- Referencia a la vista Search -->
+    <field name="search_view_id" ref="view_service_order_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">
+        Cree su primera Orden de Servicio
+      </p>
+    </field>
   </record>
 
   <!-- =========================================================
        ACCIÓN DE SERVIDOR: FACTURACIÓN MASIVA
-       (Aparece en el botón 'Acción' al seleccionar registros)
        ========================================================= -->
   <record id="action_service_order_mass_invoice" model="ir.actions.server">
     <field name="name">Crear Factura</field>
@@ -1546,34 +1618,6 @@ from . import service_order_report
   </record>
 
   <!-- =========================================================
-       VISTA LISTA
-       ========================================================= -->
-  <record id="view_service_order_list" model="ir.ui.view">
-    <field name="name">service.order.list</field>
-    <field name="model">service.order</field>
-    <field name="type">list</field>
-    <field name="arch" type="xml">
-      <list string="Órdenes de Servicio" default_order="date_order desc">
-        <field name="name" string="Folio" class="fw-bold"/>
-        <field name="date_order" string="Fecha"/>
-        <field name="partner_id" string="Cliente"/>
-        <field name="sale_order_id" string="Cotización" readonly="1"/>
-        <field name="state" widget="badge"
-               decoration-info="state == 'draft'"
-               decoration-warning="state == 'confirmed'"
-               decoration-success="state == 'done'"
-               decoration-danger="state == 'cancel'"/>
-        <field name="invoicing_status" string="Facturación" widget="badge"
-               decoration-info="invoicing_status == 'no'"
-               decoration-warning="invoicing_status == 'draft'"
-               decoration-success="invoicing_status == 'invoiced'"
-               decoration-primary="invoicing_status == 'paid'"/>
-        <field name="amount_untaxed" string="Total" sum="Total"/>
-      </list>
-    </field>
-  </record>
-
-  <!-- =========================================================
        VISTA PIVOT (TABLA DINÁMICA)
        ========================================================= -->
   <record id="view_service_order_pivot" model="ir.ui.view">
@@ -1581,10 +1625,16 @@ from . import service_order_report
     <field name="model">service.order</field>
     <field name="arch" type="xml">
       <pivot string="Análisis de Órdenes de Servicio" sample="1">
-        <field name="date_order" type="row" interval="day"/>
+        <!-- Filas (Rows) -->
         <field name="partner_id" type="row"/>
-        <field name="state" type="col"/>
-        <field name="amount_untaxed" type="measure"/>
+        
+        <!-- Columnas (Cols) -->
+        <field name="date_order" interval="month" type="col"/>
+
+        <!-- Medidas (Valores numéricos) -->
+        <field name="total_weight_kg" type="measure" string="Peso (Kg)"/>
+        <field name="total_product_qty" type="measure" string="Bultos/Cant."/>
+        <field name="amount_untaxed" type="measure" string="Monto ($)"/>
       </pivot>
     </field>
   </record>
@@ -1597,12 +1647,44 @@ from . import service_order_report
     <field name="model">service.order</field>
     <field name="arch" type="xml">
       <graph string="Ventas por Órdenes de Servicio" type="bar" sample="1">
-        <field name="date_order" interval="day"/>
-        <field name="amount_untaxed" type="measure"/>
+        <field name="date_order" interval="month"/>
+        <field name="total_weight_kg" type="measure"/>
       </graph>
     </field>
   </record>
 
+  <!-- =========================================================
+       VISTA LISTA
+       ========================================================= -->
+  <record id="view_service_order_list" model="ir.ui.view">
+    <field name="name">service.order.list</field>
+    <field name="model">service.order</field>
+    <field name="type">list</field>
+    <field name="arch" type="xml">
+      <list string="Órdenes de Servicio" default_order="date_order desc">
+        <field name="name" string="Folio" class="fw-bold"/>
+        <field name="date_order" string="Fecha"/>
+        <field name="partner_id" string="Cliente"/>
+        <field name="sale_order_id" string="Cotización" readonly="1"/>
+        
+        <!-- Nuevas Columnas (Opcionales) -->
+        <field name="total_weight_kg" string="Peso Total" sum="Total Peso" optional="show"/>
+        <field name="total_product_qty" string="Cant. Total" sum="Total Items" optional="hide"/>
+
+        <field name="state" widget="badge"
+               decoration-info="state == 'draft'"
+               decoration-warning="state == 'confirmed'"
+               decoration-success="state == 'done'"
+               decoration-danger="state == 'cancel'"/>
+        <field name="invoicing_status" string="Facturación" widget="badge"
+               decoration-info="invoicing_status == 'no'"
+               decoration-warning="invoicing_status == 'draft'"
+               decoration-success="invoicing_status == 'invoiced'"
+               decoration-primary="invoicing_status == 'paid'"/>
+        <field name="amount_untaxed" string="Monto Total" sum="Total"/>
+      </list>
+    </field>
+  </record>
 
   <!-- =========================================================
        VISTA FORMULARIO
@@ -1615,28 +1697,24 @@ from . import service_order_report
       <form string="Orden de Servicio">
 
         <header>
-          <!-- CONFIRMAR: solo en borrador -->
           <button name="action_confirm"
                   string="Confirmar"
                   type="object"
                   class="btn-primary"
                   invisible="state != 'draft'"/>
 
-          <!-- MARCAR COMPLETADO: solo en confirmado -->
           <button name="action_set_done"
                   string="Marcar Completado"
                   type="object"
                   class="btn-secondary"
                   invisible="state != 'confirmed'"/>
 
-          <!-- CANCELAR: en borrador, confirmado o completado (si no hay facturas confirmadas) -->
           <button name="action_cancel"
                   string="Cancelar"
                   type="object"
                   class="btn-secondary"
                   invisible="state not in ['draft', 'confirmed', 'done'] or invoicing_status in ['invoiced', 'paid']"/>
 
-          <!-- RESTABLECER A BORRADOR: desde cancelado, confirmado o done (si no hay facturas confirmadas) -->
           <button name="action_set_draft"
                   string="Restablecer a Borrador"
                   type="object"
@@ -1654,7 +1732,6 @@ from . import service_order_report
           <widget name="web_ribbon" title="Completada" bg_color="text-bg-success" invisible="state != 'done'"/>
           <widget name="web_ribbon" title="Cancelada" bg_color="text-bg-danger" invisible="state != 'cancel'"/>
           
-          <!-- Ribbons de facturación (solo mostrar el más relevante) -->
           <widget name="web_ribbon" title="Pagado" bg_color="text-bg-primary" invisible="invoicing_status != 'paid'"/>
           <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status not in ['invoiced'] or invoicing_status == 'paid'"/>
           <widget name="web_ribbon" title="Fact. Borrador" bg_color="text-bg-warning" invisible="invoicing_status != 'draft'"/>
@@ -1687,10 +1764,7 @@ from . import service_order_report
             <page string="Resumen" name="page_summary">
               <group>
                 <group string="Cliente y Referencias">
-
-                  <field name="partner_id"
-                         options="{'no_create': True}"
-                         readonly="sale_order_id"/>
+                  <field name="partner_id" options="{'no_create': True}" readonly="sale_order_id"/>
 
                   <field name="generador_id"
                          options="{'no_create': True}"
@@ -1713,11 +1787,9 @@ from . import service_order_report
 
                   <field name="sale_order_id" string="Cotización" readonly="1" options="{'no_create': True}"/>
                   <field name="date_order"/>
-
                 </group>
 
                 <group string="Contacto y Recolección">
-
                   <field name="contact_partner_id"
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
@@ -1739,7 +1811,6 @@ from . import service_order_report
                          options="{'no_create': True}"
                          domain="['|', ('parent_id', '=', transportista_id), ('id', '=', transportista_id)]"
                          placeholder="Seleccionar contacto del transportista..."/>
-
                 </group>
               </group>
             </page>
@@ -1758,6 +1829,10 @@ from . import service_order_report
                   <field name="bascula_1" string="Báscula 1"/>
                   <field name="bascula_2" string="Báscula 2"/>
                   <field name="numero_bascula" invisible="1"/>
+                  
+                  <!-- Totales Calculados (Solo lectura) -->
+                  <field name="total_weight_kg" readonly="1" class="fw-bold"/>
+                  <field name="total_product_qty" readonly="1" class="fw-bold"/>
                 </group>
               </group>
             </page>
@@ -1780,8 +1855,8 @@ from . import service_order_report
                          invisible="not product_id"/>
 
                   <field name="capacity" string="Capacidad" invisible="not product_id"/>
-                  <field name="weight_kg" string="Peso (kg)" invisible="not product_id"/>
-                  <field name="product_uom_qty" string="Cantidad" invisible="not product_id"/>
+                  <field name="weight_kg" string="Peso (kg)" sum="Total Kg" invisible="not product_id"/>
+                  <field name="product_uom_qty" string="Cantidad" sum="Total Cantidad" invisible="not product_id"/>
                   <field name="product_uom" string="UoM" invisible="not product_id"/>
                 </list>
               </field>

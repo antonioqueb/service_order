@@ -13,14 +13,18 @@
         <!-- Campos de búsqueda rápida -->
         <field name="name" string="Folio"/>
         <field name="partner_id" string="Cliente"/>
+        <field name="user_id" string="Comercial"/>
         <field name="sale_order_id"/>
         <field name="transportista_id"/>
         <field name="generador_id"/>
+        <field name="destinatario_id"/>
+        <field name="numero_placa"/>
+        <field name="partner_city" string="Ciudad Cliente"/>
 
         <separator/>
 
         <!-- Filtros Rápidos -->
-        <filter string="Mis Órdenes" name="my_orders" domain="[('create_uid', '=', uid)]"/>
+        <filter string="Mis Órdenes" name="my_orders" domain="[('user_id', '=', uid)]"/>
         <separator/>
         <filter string="Borrador" name="draft" domain="[('state', '=', 'draft')]"/>
         <filter string="Confirmadas" name="confirmed" domain="[('state', '=', 'confirmed')]"/>
@@ -30,15 +34,27 @@
         <filter string="Pendiente Facturar" name="to_invoice" domain="[('invoicing_status', '=', 'no'), ('state', '=', 'done')]"/>
         <separator/>
         
-        <!-- CORRECCIÓN: Filtro de fecha estándar -->
-        <!-- Esto habilita el selector de periodos (Mes, Año, Trimestre) automáticamente -->
-        <filter string="Fecha" name="filter_date_order" date="date_order"/>
+        <!-- Filtro de fecha estándar -->
+        <filter string="Fecha Orden" name="filter_date_order" date="date_order"/>
         
         <!-- Agrupadores (Group By) -->
+          <!-- Principales -->
+          <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
           <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
           <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
+          
+          <!-- Geográficos -->
+          <filter string="Ciudad" name="group_city" context="{'group_by': 'partner_city'}"/>
+          <filter string="Estado" name="group_state_id" context="{'group_by': 'partner_state_id'}"/>
+          
+          <!-- Logística -->
           <filter string="Transportista" name="group_transportista" context="{'group_by': 'transportista_id'}"/>
-          <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+          <filter string="Destinatario" name="group_destinatario" context="{'group_by': 'destinatario_id'}"/>
+          <filter string="Chofer" name="group_chofer" context="{'group_by': 'chofer_id'}"/>
+          <filter string="Placa" name="group_placa" context="{'group_by': 'numero_placa'}"/>
+          
+          <!-- Otros -->
+          <filter string="Estado Orden" name="group_state" context="{'group_by': 'state'}"/>
           <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
           <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
       </search>
@@ -101,9 +117,15 @@
         <field name="date_order" interval="month" type="col"/>
 
         <!-- Medidas (Valores numéricos) -->
+        <!-- Físicas -->
         <field name="total_weight_kg" type="measure" string="Peso (Kg)"/>
         <field name="total_product_qty" type="measure" string="Bultos/Cant."/>
-        <field name="amount_untaxed" type="measure" string="Monto ($)"/>
+        <field name="lines_count" type="measure" string="Nº Líneas"/>
+        
+        <!-- Financieras -->
+        <field name="amount_untaxed" type="measure" string="Subtotal ($)"/>
+        <field name="amount_tax" type="measure" string="Impuestos ($)"/>
+        <field name="amount_total" type="measure" string="Total ($)"/>
       </pivot>
     </field>
   </record>
@@ -134,11 +156,13 @@
         <field name="name" string="Folio" class="fw-bold"/>
         <field name="date_order" string="Fecha"/>
         <field name="partner_id" string="Cliente"/>
-        <field name="sale_order_id" string="Cotización" readonly="1"/>
+        <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="show"/>
+        <field name="sale_order_id" string="Cotización" readonly="1" optional="hide"/>
         
         <!-- Nuevas Columnas (Opcionales) -->
         <field name="total_weight_kg" string="Peso Total" sum="Total Peso" optional="show"/>
         <field name="total_product_qty" string="Cant. Total" sum="Total Items" optional="hide"/>
+        <field name="amount_total" string="Total ($)" sum="Total" optional="show" widget="monetary" decoration-bf="1"/>
 
         <field name="state" widget="badge"
                decoration-info="state == 'draft'"
@@ -150,7 +174,8 @@
                decoration-warning="invoicing_status == 'draft'"
                decoration-success="invoicing_status == 'invoiced'"
                decoration-primary="invoicing_status == 'paid'"/>
-        <field name="amount_untaxed" string="Monto Total" sum="Total"/>
+        
+        <field name="currency_id" column_invisible="1"/>
       </list>
     </field>
   </record>
@@ -234,6 +259,8 @@
               <group>
                 <group string="Cliente y Referencias">
                   <field name="partner_id" options="{'no_create': True}" readonly="sale_order_id"/>
+                  <!-- Nuevo Campo Comercial -->
+                  <field name="user_id" widget="many2one_avatar_user"/>
 
                   <field name="generador_id"
                          options="{'no_create': True}"
@@ -299,9 +326,11 @@
                   <field name="bascula_2" string="Báscula 2"/>
                   <field name="numero_bascula" invisible="1"/>
                   
-                  <!-- Totales Calculados (Solo lectura) -->
-                  <field name="total_weight_kg" readonly="1" class="fw-bold"/>
-                  <field name="total_product_qty" readonly="1" class="fw-bold"/>
+                  <!-- Totales Calculados (Informativo) -->
+                  <div colspan="2" class="mt-4 border-top pt-2">
+                     <label for="total_weight_kg" class="fw-bold"/> <field name="total_weight_kg" class="oe_inline fw-bold"/> kg<br/>
+                     <label for="total_product_qty" class="fw-bold"/> <field name="total_product_qty" class="oe_inline fw-bold"/> items
+                  </div>
                 </group>
               </group>
             </page>
@@ -313,8 +342,8 @@
                   <field name="currency_id" column_invisible="1"/>
 
                   <field name="description" string="Residuo / Equivalente"/>
-                  <field name="residue_type" string="Tipo"/>
-                  <field name="plan_manejo" string="Plan de Manejo"/>
+                  <field name="residue_type" string="Tipo" optional="hide"/>
+                  <field name="plan_manejo" string="Plan de Manejo" optional="hide"/>
                   <field name="packaging_id" string="Embalaje"/>
 
                   <field name="price_unit"
@@ -329,6 +358,16 @@
                   <field name="product_uom" string="UoM" invisible="not product_id"/>
                 </list>
               </field>
+              
+              <!-- Footer de totales financieros -->
+              <group class="oe_subtotal_footer oe_right">
+                  <field name="amount_untaxed" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                  <field name="amount_tax" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                  <div class="oe_subtotal_footer_separator oe_inline">
+                      <label for="amount_total"/>
+                  </div>
+                  <field name="amount_total" nolabel="1" class="oe_subtotal_footer_separator" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+              </group>
             </page>
 
             <page string="Observaciones" name="page_notes">

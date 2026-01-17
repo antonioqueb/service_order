@@ -24,6 +24,31 @@ class ServiceOrder(models.Model):
         tracking=True,
     )
 
+    # =========================================================
+    # NUEVO: DIMENSIONES PARA REPORTES (POWER BI STYLE)
+    # =========================================================
+    user_id = fields.Many2one(
+        'res.users',
+        string='Comercial',
+        default=lambda self: self.env.user,
+        store=True,
+        tracking=True,
+        help="Usuario responsable de la venta/servicio."
+    )
+
+    # Campos geográficos "aplanados" (store=True) para que aparezcan en Agrupar Por
+    partner_city = fields.Char(
+        related='partner_id.city', 
+        store=True, 
+        string="Ciudad Cliente"
+    )
+    partner_state_id = fields.Many2one(
+        related='partner_id.state_id', 
+        store=True, 
+        string="Estado Cliente"
+    )
+    # =========================================================
+
     partner_id = fields.Many2one(
         'res.partner',
         string='Cliente',
@@ -212,8 +237,22 @@ class ServiceOrder(models.Model):
         store=True,
         currency_field='currency_id',
     )
+    
+    # NUEVO: Impuestos y Total
+    amount_tax = fields.Monetary(
+        string='Impuestos',
+        compute='_compute_amounts',
+        store=True,
+        currency_field='currency_id',
+    )
+    amount_total = fields.Monetary(
+        string='Total',
+        compute='_compute_amounts',
+        store=True,
+        currency_field='currency_id',
+    )
 
-    # --- NUEVOS CAMPOS PARA REPORTEAR ---
+    # NUEVO: Métricas Físicas/Operativas
     total_weight_kg = fields.Float(
         string='Peso Total (Kg)',
         compute='_compute_amounts',
@@ -222,10 +261,17 @@ class ServiceOrder(models.Model):
     )
 
     total_product_qty = fields.Float(
-        string='Total Bultos/Items',
+        string='Total Items',
         compute='_compute_amounts',
         store=True,
         help="Suma total de las cantidades (piezas, bultos, servicios) de esta orden."
+    )
+    
+    lines_count = fields.Integer(
+        string='Nº Líneas',
+        compute='_compute_amounts',
+        store=True,
+        help="Cantidad de tipos de residuos/servicios diferentes en la orden."
     )
     # ------------------------------------
 
@@ -305,23 +351,48 @@ class ServiceOrder(models.Model):
     @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id', 'line_ids.weight_kg')
     def _compute_amounts(self):
         """
-        Calcula Monto, Peso y Cantidad total.
+        Calcula Monto, Impuestos, Total, Peso, Cantidad y Conteo de Líneas.
         """
         for order in self:
-            total_amount = 0.0
+            total_untaxed = 0.0
+            total_tax = 0.0
             total_weight = 0.0
             total_qty = 0.0
+            count_lines = 0
 
             for line in order.line_ids:
                 if line.product_id:
-                    total_amount += line.price_unit * line.product_uom_qty
-                    total_qty += line.product_uom_qty
-                    # Sumamos el peso de la línea
-                    total_weight += line.weight_kg
+                    price = line.price_unit
+                    qty = line.product_uom_qty
+                    
+                    # 1. Subtotal
+                    total_untaxed += price * qty
+                    
+                    # 2. Impuestos (Usando el motor fiscal de Odoo si hay producto y taxes)
+                    if line.product_id.taxes_id:
+                        # Computa impuestos para esta línea
+                        tax_res = line.product_id.taxes_id.compute_all(
+                            price,
+                            order.currency_id,
+                            qty,
+                            product=line.product_id,
+                            partner=order.partner_id
+                        )
+                        # Sumamos el monto de impuestos calculado
+                        total_tax += sum(t.get('amount', 0.0) for t in tax_res.get('taxes', []))
 
-            order.amount_untaxed = total_amount
+                    # 3. Métricas Físicas
+                    total_qty += qty
+                    total_weight += line.weight_kg
+                    count_lines += 1
+
+            order.amount_untaxed = total_untaxed
+            order.amount_tax = total_tax
+            order.amount_total = total_untaxed + total_tax
+            
             order.total_weight_kg = total_weight
             order.total_product_qty = total_qty
+            order.lines_count = count_lines
 
     @api.depends(
         'contact_partner_id',
@@ -453,6 +524,14 @@ class ServiceOrder(models.Model):
                     'service.order',
                     sequence_date=seq_date,
                 ) or _('New')
+
+            # NUEVO: Auto-asignar comercial si viene de venta o poner el actual
+            if 'user_id' not in vals:
+                if vals.get('sale_order_id'):
+                    sale = self.env['sale.order'].browse(vals['sale_order_id'])
+                    vals['user_id'] = sale.user_id.id
+                else:
+                    vals['user_id'] = self.env.user.id
 
             if vals.get('partner_id') and not vals.get('generador_id'):
                 partner = self.env['res.partner'].browse(vals['partner_id'])
