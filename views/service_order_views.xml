@@ -41,6 +41,7 @@
           <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
           <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
           <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
+          <filter string="Nombre Servicio" name="group_name" context="{'group_by': 'line_ids.name'}"/>
           
           <!-- Geográficos -->
           <filter string="Ciudad" name="group_city" context="{'group_by': 'partner_city'}"/>
