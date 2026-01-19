@@ -13,7 +13,7 @@ class ServiceOrderLine(models.Model):
     product_id = fields.Many2one('product.product', 'Residuo')
     
     # =========================================================
-    # NUEVO: CAMPOS PARA REPORTE / PIVOT (Store=True)
+    # CAMPOS DIMENSIONALES PARA REPORTE (Store=True)
     # =========================================================
     partner_id = fields.Many2one(
         related='service_order_id.partner_id', 
@@ -58,9 +58,12 @@ class ServiceOrderLine(models.Model):
         help='Descripción o comentario que venía en la línea de la orden de venta'
     )
 
+    # IMPORTANTE: store=True permite agrupar por este campo en el Pivot
+    # (útil para líneas que no tienen product_id pero sí descripción)
     description = fields.Char(
         string='Residuo / Equivalente',
-        compute='_compute_description', store=False
+        compute='_compute_description', 
+        store=True
     )
     
     product_uom_qty = fields.Float('Cantidad')

@@ -3,7 +3,6 @@
 
   <!-- =========================================================
        VISTA BÚSQUEDA (SEARCH) - ORDEN
-       NOTA: Debe ir antes de 'action_service_order'
        ========================================================= -->
   <record id="view_service_order_search" model="ir.ui.view">
     <field name="name">service.order.search</field>
@@ -116,13 +115,10 @@
         <!-- Columnas (Cols) -->
         <field name="date_order" interval="month" type="col"/>
 
-        <!-- Medidas (Valores numéricos) -->
-        <!-- Físicas -->
+        <!-- Medidas -->
         <field name="total_weight_kg" type="measure" string="Peso (Kg)"/>
         <field name="total_product_qty" type="measure" string="Bultos/Cant."/>
         <field name="lines_count" type="measure" string="Nº Líneas"/>
-        
-        <!-- Financieras -->
         <field name="amount_untaxed" type="measure" string="Subtotal ($)"/>
         <field name="amount_tax" type="measure" string="Impuestos ($)"/>
         <field name="amount_total" type="measure" string="Total ($)"/>
@@ -159,7 +155,7 @@
         <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="show"/>
         <field name="sale_order_id" string="Cotización" readonly="1" optional="hide"/>
         
-        <!-- Nuevas Columnas (Opcionales) -->
+        <!-- Columnas adicionales -->
         <field name="total_weight_kg" string="Peso Total" sum="Total Peso" optional="show"/>
         <field name="total_product_qty" string="Cant. Total" sum="Total Items" optional="hide"/>
         <field name="amount_total" string="Total ($)" sum="Total" optional="show" widget="monetary" decoration-bf="1"/>
@@ -259,7 +255,6 @@
               <group>
                 <group string="Cliente y Referencias">
                   <field name="partner_id" options="{'no_create': True}" readonly="sale_order_id"/>
-                  <!-- Nuevo Campo Comercial -->
                   <field name="user_id" widget="many2one_avatar_user"/>
 
                   <field name="generador_id"
@@ -326,7 +321,6 @@
                   <field name="bascula_2" string="Báscula 2"/>
                   <field name="numero_bascula" invisible="1"/>
                   
-                  <!-- Totales Calculados (Informativo) -->
                   <div colspan="2" class="mt-4 border-top pt-2">
                      <label for="total_weight_kg" class="fw-bold"/> <field name="total_weight_kg" class="oe_inline fw-bold"/> kg<br/>
                      <label for="total_product_qty" class="fw-bold"/> <field name="total_product_qty" class="oe_inline fw-bold"/> items
@@ -359,7 +353,6 @@
                 </list>
               </field>
               
-              <!-- Footer de totales financieros -->
               <group class="oe_subtotal_footer oe_right">
                   <field name="amount_untaxed" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                   <field name="amount_tax" widget="monetary" options="{'currency_field': 'currency_id'}"/>
@@ -415,6 +408,7 @@
         <field name="plan_manejo"/>
         <field name="packaging_id"/>
         <field name="state"/>
+        <field name="description" string="Descripción (Texto)"/>
       </pivot>
     </field>
   </record>
@@ -439,6 +433,7 @@
     <field name="arch" type="xml">
       <search string="Buscar Residuos">
         <field name="product_id" string="Residuo/Servicio"/>
+        <field name="description" string="Descripción"/>
         <field name="partner_id" string="Cliente"/>
         <field name="service_order_id" string="Orden de Servicio"/>
         <field name="residue_type"/>
@@ -450,13 +445,16 @@
         <separator/>
         <filter string="Este Mes" name="this_month" date="date_order"/>
 
+        <group expand="1" string="Agrupar Por">
             <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
             <filter string="Residuo" name="group_product" context="{'group_by':'product_id'}"/>
+            <filter string="Descripción" name="group_description" context="{'group_by':'description'}"/>
             <filter string="Tipo Residuo" name="group_type" context="{'group_by':'residue_type'}"/>
             <filter string="Plan de Manejo" name="group_plan" context="{'group_by':'plan_manejo'}"/>
             <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>
             <filter string="Fecha" name="group_date" context="{'group_by':'date_order:month'}"/>
             <filter string="Comercial" name="group_user" context="{'group_by':'user_id'}"/>
+        </group>
       </search>
     </field>
   </record>
