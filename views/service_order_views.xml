@@ -335,7 +335,7 @@
                   <field name="product_id" string="Producto/Servicio" options="{'no_create': True}"/>
                   <field name="currency_id" column_invisible="1"/>
 
-                  <field name="description" string="Residuo / Equivalente"/>
+                  <field name="name" string="Equivalente / Descripción"/>
                   <field name="residue_type" string="Tipo" optional="hide"/>
                   <field name="plan_manejo" string="Plan de Manejo" optional="hide"/>
                   <field name="packaging_id" string="Embalaje"/>
@@ -392,6 +392,8 @@
       <pivot string="Análisis de Residuos" sample="1">
         <!-- Filas: El Residuo (Producto) -->
         <field name="product_id" type="row"/>
+        <!-- NUEVO: Agregado nombre explícito para poder bajar el nivel de detalle -->
+        <field name="name" type="row"/>
         
         <!-- Columnas: Tiempo -->
         <field name="date_order" interval="month" type="col"/>
@@ -408,7 +410,8 @@
         <field name="plan_manejo"/>
         <field name="packaging_id"/>
         <field name="state"/>
-        <field name="description" string="Descripción (Texto)"/>
+        <!-- description es el computado, name es el manual -->
+        <field name="description" string="Descripción (Comp)"/>
       </pivot>
     </field>
   </record>
@@ -433,7 +436,9 @@
     <field name="arch" type="xml">
       <search string="Buscar Residuos">
         <field name="product_id" string="Residuo/Servicio"/>
-        <field name="description" string="Descripción"/>
+        <!-- NUEVO: Agregar nombre a la búsqueda -->
+        <field name="name" string="Nombre de Servicio / Equivalente"/>
+        <field name="description" string="Descripción Calculada"/>
         <field name="partner_id" string="Cliente"/>
         <field name="service_order_id" string="Orden de Servicio"/>
         <field name="residue_type"/>
@@ -446,8 +451,10 @@
         <filter string="Este Mes" name="this_month" date="date_order"/>
 
             <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
-            <filter string="Residuo" name="group_product" context="{'group_by':'product_id'}"/>
-            <filter string="Descripción" name="group_description" context="{'group_by':'description'}"/>
+            <filter string="Residuo (Producto)" name="group_product" context="{'group_by':'product_id'}"/>
+            <!-- NUEVO: Agregar agrupación por Nombre Manual -->
+            <filter string="Nombre del Servicio" name="group_name" context="{'group_by':'name'}"/>
+            <filter string="Descripción (Comp)" name="group_description" context="{'group_by':'description'}"/>
             <filter string="Tipo Residuo" name="group_type" context="{'group_by':'residue_type'}"/>
             <filter string="Plan de Manejo" name="group_plan" context="{'group_by':'plan_manejo'}"/>
             <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>

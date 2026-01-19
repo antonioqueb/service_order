@@ -53,8 +53,9 @@ class ServiceOrderLine(models.Model):
             line.price_subtotal = line.price_unit * line.product_uom_qty
     # =========================================================
 
-    name = fields.Text(
-        string='Equivalente',
+    # CAMBIO IMPORTANTE: Char en lugar de Text para permitir 'Group By' en Pivot
+    name = fields.Char(
+        string='Equivalente / Descripción',
         help='Descripción o comentario que venía en la línea de la orden de venta'
     )
 
