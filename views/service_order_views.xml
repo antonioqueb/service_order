@@ -445,7 +445,6 @@
         <separator/>
         <filter string="Este Mes" name="this_month" date="date_order"/>
 
-        <group expand="1" string="Agrupar Por">
             <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
             <filter string="Residuo" name="group_product" context="{'group_by':'product_id'}"/>
             <filter string="Descripción" name="group_description" context="{'group_by':'description'}"/>
@@ -454,7 +453,6 @@
             <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>
             <filter string="Fecha" name="group_date" context="{'group_by':'date_order:month'}"/>
             <filter string="Comercial" name="group_user" context="{'group_by':'user_id'}"/>
-        </group>
       </search>
     </field>
   </record>
