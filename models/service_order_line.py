@@ -11,29 +11,67 @@ class ServiceOrderLine(models.Model):
         required=True, ondelete='cascade'
     )
     product_id = fields.Many2one('product.product', 'Residuo')
+    
+    # =========================================================
+    # NUEVO: CAMPOS PARA REPORTE / PIVOT (Store=True)
+    # =========================================================
+    partner_id = fields.Many2one(
+        related='service_order_id.partner_id', 
+        store=True, 
+        string='Cliente',
+        readonly=True
+    )
+    user_id = fields.Many2one(
+        related='service_order_id.user_id', 
+        store=True, 
+        string='Comercial',
+        readonly=True
+    )
+    date_order = fields.Datetime(
+        related='service_order_id.date_order', 
+        store=True, 
+        string='Fecha',
+        readonly=True
+    )
+    state = fields.Selection(
+        related='service_order_id.state',
+        store=True,
+        string='Estado Orden',
+        readonly=True
+    )
+    
+    price_subtotal = fields.Float(
+        string='Subtotal',
+        compute='_compute_price_subtotal',
+        store=True,
+        group_operator="sum"
+    )
+
+    @api.depends('price_unit', 'product_uom_qty')
+    def _compute_price_subtotal(self):
+        for line in self:
+            line.price_subtotal = line.price_unit * line.product_uom_qty
+    # =========================================================
+
     name = fields.Text(
         string='Equivalente',
         help='Descripción o comentario que venía en la línea de la orden de venta'
     )
+
     description = fields.Char(
         string='Residuo / Equivalente',
         compute='_compute_description', store=False
     )
     
-    # SIN default: así puede quedar realmente vacío (NULL) si es nota
     product_uom_qty = fields.Float('Cantidad')
     product_uom = fields.Many2one('uom.uom', 'Unidad de Medida')
     
-    # =========================================================
-    # NUEVO: PRECIO Y MONEDA
-    # =========================================================
     price_unit = fields.Float(
         string='Precio Unitario',
         digits='Product Price',
         default=0.0
     )
     
-    # Campo auxiliar para saber la moneda (tomada de la cotización origen o de la compañía)
     currency_id = fields.Many2one(
         'res.currency',
         string='Moneda',
@@ -48,7 +86,6 @@ class ServiceOrderLine(models.Model):
                 line.currency_id = line.service_order_id.sale_order_id.currency_id
             else:
                 line.currency_id = line.env.company.currency_id
-    # =========================================================
 
     weight_kg = fields.Float(
         string='Peso Total (kg)',
@@ -60,13 +97,10 @@ class ServiceOrderLine(models.Model):
         help='Capacidad del contenedor (ej: 100 L, 200 Kg, 50 CM³)'
     )
     
-    # --- CORRECCIÓN ODOO 19 ---
-    # Cambiado product.packaging por uom.uom
     packaging_id = fields.Many2one(
         'uom.uom', 'Embalaje de Producto',
         help='Tipo de embalaje asociado al producto (gestionado como UoM en Odoo 19)'
     )
-    # --------------------------
 
     residue_type = fields.Selection(
         [('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
@@ -95,21 +129,16 @@ class ServiceOrderLine(models.Model):
     
     @api.onchange('product_id')
     def _onchange_product_id(self):
-        """Si quitamos el producto (es nota) dejamos qty vacía."""
         for rec in self:
             if rec.product_id:
                 if not rec.product_uom_qty:
                     rec.product_uom_qty = 1.0
                 rec.product_uom = rec.product_id.uom_id
                 
-                # Si hay cambio de producto manual, sugerimos su precio de lista
-                # (Solo si no viene ya seteado de la venta)
                 if not rec.price_unit:
                     rec.price_unit = rec.product_id.lst_price
 
-                # --- CORRECCIÓN ODOO 19 ---
                 if not rec.packaging_id:
-                    # Búsqueda en uom.uom en lugar de packaging
                     packagings = self.env['uom.uom'].search([
                         ('product_id', '=', rec.product_id.id)
                     ], limit=1)

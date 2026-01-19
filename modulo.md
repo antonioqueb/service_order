@@ -329,6 +329,31 @@ class ServiceOrder(models.Model):
         tracking=True,
     )
 
+    # =========================================================
+    # NUEVO: DIMENSIONES PARA REPORTES (POWER BI STYLE)
+    # =========================================================
+    user_id = fields.Many2one(
+        'res.users',
+        string='Comercial',
+        default=lambda self: self.env.user,
+        store=True,
+        tracking=True,
+        help="Usuario responsable de la venta/servicio."
+    )
+
+    # Campos geográficos "aplanados" (store=True) para que aparezcan en Agrupar Por
+    partner_city = fields.Char(
+        related='partner_id.city', 
+        store=True, 
+        string="Ciudad Cliente"
+    )
+    partner_state_id = fields.Many2one(
+        related='partner_id.state_id', 
+        store=True, 
+        string="Estado Cliente"
+    )
+    # =========================================================
+
     partner_id = fields.Many2one(
         'res.partner',
         string='Cliente',
@@ -517,8 +542,22 @@ class ServiceOrder(models.Model):
         store=True,
         currency_field='currency_id',
     )
+    
+    # NUEVO: Impuestos y Total
+    amount_tax = fields.Monetary(
+        string='Impuestos',
+        compute='_compute_amounts',
+        store=True,
+        currency_field='currency_id',
+    )
+    amount_total = fields.Monetary(
+        string='Total',
+        compute='_compute_amounts',
+        store=True,
+        currency_field='currency_id',
+    )
 
-    # --- NUEVOS CAMPOS PARA REPORTEAR ---
+    # NUEVO: Métricas Físicas/Operativas
     total_weight_kg = fields.Float(
         string='Peso Total (Kg)',
         compute='_compute_amounts',
@@ -531,6 +570,13 @@ class ServiceOrder(models.Model):
         compute='_compute_amounts',
         store=True,
         help="Suma total de las cantidades (piezas, bultos, servicios) de esta orden."
+    )
+    
+    lines_count = fields.Integer(
+        string='Nº Líneas',
+        compute='_compute_amounts',
+        store=True,
+        help="Cantidad de tipos de residuos/servicios diferentes en la orden."
     )
     # ------------------------------------
 
@@ -610,23 +656,48 @@ class ServiceOrder(models.Model):
     @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id', 'line_ids.weight_kg')
     def _compute_amounts(self):
         """
-        Calcula Monto, Peso y Cantidad total.
+        Calcula Monto, Impuestos, Total, Peso, Cantidad y Conteo de Líneas.
         """
         for order in self:
-            total_amount = 0.0
+            total_untaxed = 0.0
+            total_tax = 0.0
             total_weight = 0.0
             total_qty = 0.0
+            count_lines = 0
 
             for line in order.line_ids:
                 if line.product_id:
-                    total_amount += line.price_unit * line.product_uom_qty
-                    total_qty += line.product_uom_qty
-                    # Sumamos el peso de la línea
-                    total_weight += line.weight_kg
+                    price = line.price_unit
+                    qty = line.product_uom_qty
+                    
+                    # 1. Subtotal
+                    total_untaxed += price * qty
+                    
+                    # 2. Impuestos (Usando el motor fiscal de Odoo si hay producto y taxes)
+                    if line.product_id.taxes_id:
+                        # Computa impuestos para esta línea
+                        tax_res = line.product_id.taxes_id.compute_all(
+                            price,
+                            order.currency_id,
+                            qty,
+                            product=line.product_id,
+                            partner=order.partner_id
+                        )
+                        # Sumamos el monto de impuestos calculado
+                        total_tax += sum(t.get('amount', 0.0) for t in tax_res.get('taxes', []))
 
-            order.amount_untaxed = total_amount
+                    # 3. Métricas Físicas
+                    total_qty += qty
+                    total_weight += line.weight_kg
+                    count_lines += 1
+
+            order.amount_untaxed = total_untaxed
+            order.amount_tax = total_tax
+            order.amount_total = total_untaxed + total_tax
+            
             order.total_weight_kg = total_weight
             order.total_product_qty = total_qty
+            order.lines_count = count_lines
 
     @api.depends(
         'contact_partner_id',
@@ -758,6 +829,14 @@ class ServiceOrder(models.Model):
                     'service.order',
                     sequence_date=seq_date,
                 ) or _('New')
+
+            # NUEVO: Auto-asignar comercial si viene de venta o poner el actual
+            if 'user_id' not in vals:
+                if vals.get('sale_order_id'):
+                    sale = self.env['sale.order'].browse(vals['sale_order_id'])
+                    vals['user_id'] = sale.user_id.id
+                else:
+                    vals['user_id'] = self.env.user.id
 
             if vals.get('partner_id') and not vals.get('generador_id'):
                 partner = self.env['res.partner'].browse(vals['partner_id'])
@@ -1544,14 +1623,18 @@ from . import service_order_report
         <!-- Campos de búsqueda rápida -->
         <field name="name" string="Folio"/>
         <field name="partner_id" string="Cliente"/>
+        <field name="user_id" string="Comercial"/>
         <field name="sale_order_id"/>
         <field name="transportista_id"/>
         <field name="generador_id"/>
+        <field name="destinatario_id"/>
+        <field name="numero_placa"/>
+        <field name="partner_city" string="Ciudad Cliente"/>
 
         <separator/>
 
         <!-- Filtros Rápidos -->
-        <filter string="Mis Órdenes" name="my_orders" domain="[('create_uid', '=', uid)]"/>
+        <filter string="Mis Órdenes" name="my_orders" domain="[('user_id', '=', uid)]"/>
         <separator/>
         <filter string="Borrador" name="draft" domain="[('state', '=', 'draft')]"/>
         <filter string="Confirmadas" name="confirmed" domain="[('state', '=', 'confirmed')]"/>
@@ -1561,15 +1644,27 @@ from . import service_order_report
         <filter string="Pendiente Facturar" name="to_invoice" domain="[('invoicing_status', '=', 'no'), ('state', '=', 'done')]"/>
         <separator/>
         
-        <!-- CORRECCIÓN: Filtro de fecha estándar -->
-        <!-- Esto habilita el selector de periodos (Mes, Año, Trimestre) automáticamente -->
-        <filter string="Fecha" name="filter_date_order" date="date_order"/>
+        <!-- Filtro de fecha estándar -->
+        <filter string="Fecha Orden" name="filter_date_order" date="date_order"/>
         
         <!-- Agrupadores (Group By) -->
+          <!-- Principales -->
+          <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
           <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
           <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
+          
+          <!-- Geográficos -->
+          <filter string="Ciudad" name="group_city" context="{'group_by': 'partner_city'}"/>
+          <filter string="Estado" name="group_state_id" context="{'group_by': 'partner_state_id'}"/>
+          
+          <!-- Logística -->
           <filter string="Transportista" name="group_transportista" context="{'group_by': 'transportista_id'}"/>
-          <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+          <filter string="Destinatario" name="group_destinatario" context="{'group_by': 'destinatario_id'}"/>
+          <filter string="Chofer" name="group_chofer" context="{'group_by': 'chofer_id'}"/>
+          <filter string="Placa" name="group_placa" context="{'group_by': 'numero_placa'}"/>
+          
+          <!-- Otros -->
+          <filter string="Estado Orden" name="group_state" context="{'group_by': 'state'}"/>
           <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
           <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
       </search>
@@ -1632,9 +1727,15 @@ from . import service_order_report
         <field name="date_order" interval="month" type="col"/>
 
         <!-- Medidas (Valores numéricos) -->
+        <!-- Físicas -->
         <field name="total_weight_kg" type="measure" string="Peso (Kg)"/>
         <field name="total_product_qty" type="measure" string="Bultos/Cant."/>
-        <field name="amount_untaxed" type="measure" string="Monto ($)"/>
+        <field name="lines_count" type="measure" string="Nº Líneas"/>
+        
+        <!-- Financieras -->
+        <field name="amount_untaxed" type="measure" string="Subtotal ($)"/>
+        <field name="amount_tax" type="measure" string="Impuestos ($)"/>
+        <field name="amount_total" type="measure" string="Total ($)"/>
       </pivot>
     </field>
   </record>
@@ -1665,11 +1766,13 @@ from . import service_order_report
         <field name="name" string="Folio" class="fw-bold"/>
         <field name="date_order" string="Fecha"/>
         <field name="partner_id" string="Cliente"/>
-        <field name="sale_order_id" string="Cotización" readonly="1"/>
+        <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="show"/>
+        <field name="sale_order_id" string="Cotización" readonly="1" optional="hide"/>
         
         <!-- Nuevas Columnas (Opcionales) -->
         <field name="total_weight_kg" string="Peso Total" sum="Total Peso" optional="show"/>
         <field name="total_product_qty" string="Cant. Total" sum="Total Items" optional="hide"/>
+        <field name="amount_total" string="Total ($)" sum="Total" optional="show" widget="monetary" decoration-bf="1"/>
 
         <field name="state" widget="badge"
                decoration-info="state == 'draft'"
@@ -1681,7 +1784,8 @@ from . import service_order_report
                decoration-warning="invoicing_status == 'draft'"
                decoration-success="invoicing_status == 'invoiced'"
                decoration-primary="invoicing_status == 'paid'"/>
-        <field name="amount_untaxed" string="Monto Total" sum="Total"/>
+        
+        <field name="currency_id" column_invisible="1"/>
       </list>
     </field>
   </record>
@@ -1765,6 +1869,8 @@ from . import service_order_report
               <group>
                 <group string="Cliente y Referencias">
                   <field name="partner_id" options="{'no_create': True}" readonly="sale_order_id"/>
+                  <!-- Nuevo Campo Comercial -->
+                  <field name="user_id" widget="many2one_avatar_user"/>
 
                   <field name="generador_id"
                          options="{'no_create': True}"
@@ -1830,9 +1936,11 @@ from . import service_order_report
                   <field name="bascula_2" string="Báscula 2"/>
                   <field name="numero_bascula" invisible="1"/>
                   
-                  <!-- Totales Calculados (Solo lectura) -->
-                  <field name="total_weight_kg" readonly="1" class="fw-bold"/>
-                  <field name="total_product_qty" readonly="1" class="fw-bold"/>
+                  <!-- Totales Calculados (Informativo) -->
+                  <div colspan="2" class="mt-4 border-top pt-2">
+                     <label for="total_weight_kg" class="fw-bold"/> <field name="total_weight_kg" class="oe_inline fw-bold"/> kg<br/>
+                     <label for="total_product_qty" class="fw-bold"/> <field name="total_product_qty" class="oe_inline fw-bold"/> items
+                  </div>
                 </group>
               </group>
             </page>
@@ -1844,8 +1952,8 @@ from . import service_order_report
                   <field name="currency_id" column_invisible="1"/>
 
                   <field name="description" string="Residuo / Equivalente"/>
-                  <field name="residue_type" string="Tipo"/>
-                  <field name="plan_manejo" string="Plan de Manejo"/>
+                  <field name="residue_type" string="Tipo" optional="hide"/>
+                  <field name="plan_manejo" string="Plan de Manejo" optional="hide"/>
                   <field name="packaging_id" string="Embalaje"/>
 
                   <field name="price_unit"
@@ -1860,6 +1968,16 @@ from . import service_order_report
                   <field name="product_uom" string="UoM" invisible="not product_id"/>
                 </list>
               </field>
+              
+              <!-- Footer de totales financieros -->
+              <group class="oe_subtotal_footer oe_right">
+                  <field name="amount_untaxed" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                  <field name="amount_tax" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                  <div class="oe_subtotal_footer_separator oe_inline">
+                      <label for="amount_total"/>
+                  </div>
+                  <field name="amount_total" nolabel="1" class="oe_subtotal_footer_separator" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+              </group>
             </page>
 
             <page string="Observaciones" name="page_notes">

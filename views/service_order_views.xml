@@ -2,7 +2,7 @@
 <odoo>
 
   <!-- =========================================================
-       VISTA BÚSQUEDA (SEARCH)
+       VISTA BÚSQUEDA (SEARCH) - ORDEN
        NOTA: Debe ir antes de 'action_service_order'
        ========================================================= -->
   <record id="view_service_order_search" model="ir.ui.view">
@@ -62,7 +62,7 @@
   </record>
 
   <!-- =========================================================
-       ACCIÓN PRINCIPAL (WINDOW ACTION)
+       ACCIÓN PRINCIPAL (WINDOW ACTION) - ORDEN
        ========================================================= -->
   <record id="action_service_order" model="ir.actions.act_window">
     <field name="name">Órdenes de Servicio</field>
@@ -103,7 +103,7 @@
   </record>
 
   <!-- =========================================================
-       VISTA PIVOT (TABLA DINÁMICA)
+       VISTA PIVOT (TABLA DINÁMICA) - ORDEN
        ========================================================= -->
   <record id="view_service_order_pivot" model="ir.ui.view">
     <field name="name">service.order.pivot</field>
@@ -131,7 +131,7 @@
   </record>
 
   <!-- =========================================================
-       VISTA GRAPH
+       VISTA GRAPH - ORDEN
        ========================================================= -->
   <record id="view_service_order_graph" model="ir.ui.view">
     <field name="name">service.order.graph</field>
@@ -145,7 +145,7 @@
   </record>
 
   <!-- =========================================================
-       VISTA LISTA
+       VISTA LISTA - ORDEN
        ========================================================= -->
   <record id="view_service_order_list" model="ir.ui.view">
     <field name="name">service.order.list</field>
@@ -181,7 +181,7 @@
   </record>
 
   <!-- =========================================================
-       VISTA FORMULARIO
+       VISTA FORMULARIO - ORDEN
        ========================================================= -->
   <record id="view_service_order_form" model="ir.ui.view">
     <field name="name">service.order.form</field>
@@ -385,5 +385,104 @@
       </form>
     </field>
   </record>
+
+  <!-- =========================================================
+       NUEVO: ANÁLISIS DE RESIDUOS (LINE PIVOT/GRAPH)
+       Esta sección permite reportar sobre TODAS las líneas
+       ========================================================= -->
+
+  <!-- 1. Vista Pivot para Líneas -->
+  <record id="view_service_order_line_pivot" model="ir.ui.view">
+    <field name="name">service.order.line.pivot</field>
+    <field name="model">service.order.line</field>
+    <field name="arch" type="xml">
+      <pivot string="Análisis de Residuos" sample="1">
+        <!-- Filas: El Residuo (Producto) -->
+        <field name="product_id" type="row"/>
+        
+        <!-- Columnas: Tiempo -->
+        <field name="date_order" interval="month" type="col"/>
+
+        <!-- Medidas -->
+        <field name="weight_kg" type="measure" string="Peso (Kg)"/>
+        <field name="product_uom_qty" type="measure" string="Cantidad"/>
+        <field name="price_subtotal" type="measure" string="Subtotal ($)"/>
+
+        <!-- Campos adicionales disponibles -->
+        <field name="partner_id"/>
+        <field name="user_id"/>
+        <field name="residue_type"/>
+        <field name="plan_manejo"/>
+        <field name="packaging_id"/>
+        <field name="state"/>
+      </pivot>
+    </field>
+  </record>
+
+  <!-- 2. Vista Graph para Líneas -->
+  <record id="view_service_order_line_graph" model="ir.ui.view">
+    <field name="name">service.order.line.graph</field>
+    <field name="model">service.order.line</field>
+    <field name="arch" type="xml">
+      <graph string="Análisis Gráfico" type="bar" sample="1">
+        <field name="date_order" interval="month"/>
+        <field name="product_id"/>
+        <field name="weight_kg" type="measure"/>
+      </graph>
+    </field>
+  </record>
+
+  <!-- 3. Vista Search para Líneas -->
+  <record id="view_service_order_line_search" model="ir.ui.view">
+    <field name="name">service.order.line.search</field>
+    <field name="model">service.order.line</field>
+    <field name="arch" type="xml">
+      <search string="Buscar Residuos">
+        <field name="product_id" string="Residuo/Servicio"/>
+        <field name="partner_id" string="Cliente"/>
+        <field name="service_order_id" string="Orden de Servicio"/>
+        <field name="residue_type"/>
+        <field name="plan_manejo"/>
+        
+        <separator/>
+        <filter string="Confirmadas/Completadas" name="confirmed_done" domain="[('state', 'in', ['confirmed', 'done'])]"/>
+        <filter string="Pendientes" name="draft" domain="[('state', '=', 'draft')]"/>
+        <separator/>
+        <filter string="Este Mes" name="this_month" date="date_order"/>
+
+        <group expand="1" string="Agrupar Por">
+            <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
+            <filter string="Residuo" name="group_product" context="{'group_by':'product_id'}"/>
+            <filter string="Tipo Residuo" name="group_type" context="{'group_by':'residue_type'}"/>
+            <filter string="Plan de Manejo" name="group_plan" context="{'group_by':'plan_manejo'}"/>
+            <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>
+            <filter string="Fecha" name="group_date" context="{'group_by':'date_order:month'}"/>
+            <filter string="Comercial" name="group_user" context="{'group_by':'user_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <!-- 4. Acción de Ventana (Reporte Líneas) -->
+  <record id="action_service_order_line_analysis" model="ir.actions.act_window">
+    <field name="name">Análisis Detallado de Líneas</field>
+    <field name="res_model">service.order.line</field>
+    <field name="view_mode">pivot,graph,list</field>
+    <field name="search_view_id" ref="view_service_order_line_search"/>
+    <field name="context">{'search_default_confirmed_done': 1}</field>
+    <!-- SIN DOMAIN para que salgan todas las líneas, incluidas las sin producto -->
+  </record>
+
+  <!-- 5. Elemento de Menú para el Reporte -->
+  <menuitem id="menu_service_order_analysis_root"
+            name="Informes"
+            parent="menu_service_order_root"
+            sequence="20"/>
+
+  <menuitem id="menu_service_order_residue_analysis"
+            name="Análisis de Residuos"
+            parent="menu_service_order_analysis_root"
+            action="action_service_order_line_analysis"
+            sequence="1"/>
 
 </odoo>
