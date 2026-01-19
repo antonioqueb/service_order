@@ -12,6 +12,12 @@
         <!-- Campos de búsqueda rápida -->
         <field name="name" string="Folio"/>
         <field name="partner_id" string="Cliente"/>
+        
+        <!-- NUEVO: BUSCAR POR SERVICIO DENTRO DE LA ORDEN 
+             Esto permite escribir el nombre del servicio en la barra de búsqueda -->
+        <field name="line_ids" string="Servicio / Residuo" 
+               filter_domain="['|', ('line_ids.name', 'ilike', self), ('line_ids.product_id.name', 'ilike', self)]"/>
+
         <field name="user_id" string="Comercial"/>
         <field name="sale_order_id"/>
         <field name="transportista_id"/>
@@ -41,7 +47,10 @@
           <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
           <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
           <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
-          <filter string="Nombre Servicio" name="group_name" context="{'group_by': 'line_ids.name'}"/>
+          
+          <!-- NOTA: Se eliminó el group_by de line_ids.name aquí porque causaba el error RPC.
+               Para ver el desglose por nombre en Pivot, se debe usar la vista de "Análisis de Residuos".
+               Aquí solo podemos FILTRAR (Buscar), no Agrupar. -->
           
           <!-- Geográficos -->
           <filter string="Ciudad" name="group_city" context="{'group_by': 'partner_city'}"/>
@@ -453,8 +462,10 @@
 
             <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
             <filter string="Residuo (Producto)" name="group_product" context="{'group_by':'product_id'}"/>
-            <!-- NUEVO: Agregar agrupación por Nombre Manual -->
+            
+            <!-- AQUÍ SÍ FUNCIONA porque el modelo base es service.order.line -->
             <filter string="Nombre del Servicio" name="group_name" context="{'group_by':'name'}"/>
+            
             <filter string="Descripción (Comp)" name="group_description" context="{'group_by':'description'}"/>
             <filter string="Tipo Residuo" name="group_type" context="{'group_by':'residue_type'}"/>
             <filter string="Plan de Manejo" name="group_plan" context="{'group_by':'plan_manejo'}"/>
