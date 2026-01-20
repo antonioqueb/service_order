@@ -44,7 +44,6 @@
         <filter string="Fecha Orden" name="filter_date_order" date="date_order"/>
         
         <!-- Agrupadores (Group By) -->
-        <group expand="0" string="Agrupar Por">
           <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
           <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
           <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
@@ -63,7 +62,6 @@
           <filter string="Estado Orden" name="group_state" context="{'group_by': 'state'}"/>
           <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
           <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
-        </group>
       </search>
     </field>
   </record>
@@ -350,7 +348,6 @@
         <separator/>
         <filter string="Este Mes" name="this_month" date="date_order"/>
 
-        <group expand="0" string="Agrupar Por">
             <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
             <filter string="Residuo (Producto)" name="group_product" context="{'group_by':'product_id'}"/>
             
@@ -363,7 +360,6 @@
             <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>
             <filter string="Fecha" name="group_date" context="{'group_by':'date_order:month'}"/>
             <filter string="Comercial" name="group_user" context="{'group_by':'user_id'}"/>
-        </group>
       </search>
     </field>
   </record>
