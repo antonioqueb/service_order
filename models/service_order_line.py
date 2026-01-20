@@ -13,7 +13,7 @@ class ServiceOrderLine(models.Model):
     product_id = fields.Many2one('product.product', 'Residuo')
     
     # =========================================================
-    # CAMPOS DIMENSIONALES PARA REPORTE (Store=True)
+    # CAMPOS DIMENSIONALES PARA REPORTE (Traídos del Padre)
     # =========================================================
     partner_id = fields.Many2one(
         related='service_order_id.partner_id', 
@@ -40,6 +40,24 @@ class ServiceOrderLine(models.Model):
         readonly=True
     )
     
+    # -- Nuevas dimensiones para que el reporte sea completo --
+    partner_city = fields.Char(
+        related='service_order_id.partner_id.city',
+        store=True,
+        string="Ciudad Cliente"
+    )
+    transportista_id = fields.Many2one(
+        related='service_order_id.transportista_id',
+        store=True,
+        string="Transportista"
+    )
+    generador_id = fields.Many2one(
+        related='service_order_id.generador_id',
+        store=True,
+        string="Generador"
+    )
+    # ---------------------------------------------------------
+    
     price_subtotal = fields.Float(
         string='Subtotal',
         compute='_compute_price_subtotal',
@@ -53,14 +71,13 @@ class ServiceOrderLine(models.Model):
             line.price_subtotal = line.price_unit * line.product_uom_qty
     # =========================================================
 
-    # CAMBIO IMPORTANTE: Char en lugar de Text para permitir 'Group By' en Pivot
+    # CAMBIO: Char para permitir agrupación en Pivot
     name = fields.Char(
         string='Equivalente / Descripción',
         help='Descripción o comentario que venía en la línea de la orden de venta'
     )
 
     # IMPORTANTE: store=True permite agrupar por este campo en el Pivot
-    # (útil para líneas que no tienen product_id pero sí descripción)
     description = fields.Char(
         string='Residuo / Equivalente',
         compute='_compute_description', 

@@ -25,7 +25,7 @@ class ServiceOrder(models.Model):
     )
 
     # =========================================================
-    # NUEVO: DIMENSIONES PARA REPORTES (POWER BI STYLE)
+    # DIMENSIONES PARA REPORTES
     # =========================================================
     user_id = fields.Many2one(
         'res.users',
@@ -47,30 +47,6 @@ class ServiceOrder(models.Model):
         store=True, 
         string="Estado Cliente"
     )
-
-    # =========================================================
-    # SOLUCIÓN PARA PIVOT: Campo Almacenado de Nombres de Servicio
-    # =========================================================
-    service_names_str = fields.Char(
-        string='Servicios / Residuos',
-        compute='_compute_service_names_str',
-        store=True,  # INDISPENSABLE para poder Agrupar en Pivot
-        index=True,
-        help="Lista separada por comas de los servicios en esta orden para análisis."
-    )
-
-    @api.depends('line_ids', 'line_ids.name', 'line_ids.product_id')
-    def _compute_service_names_str(self):
-        for rec in self:
-            # Obtenemos los nombres (del producto o la descripción manual)
-            names = []
-            for line in rec.line_ids:
-                n = line.product_id.name if line.product_id else line.name
-                if n:
-                    names.append(n)
-            # Eliminamos duplicados y unimos con comas
-            # Si tiene "Residuo A" y "Residuo B", el grupo será "Residuo A, Residuo B"
-            rec.service_names_str = ", ".join(list(set(names))) if names else False
     # =========================================================
 
     partner_id = fields.Many2one(

@@ -2,8 +2,10 @@
 <odoo>
 
   <!-- =========================================================
-       VISTA BÚSQUEDA (SEARCH) - ORDEN
+       1. VISTAS DEL MODELO PRINCIPAL (SERVICE.ORDER)
        ========================================================= -->
+
+  <!-- VISTA BÚSQUEDA (SEARCH) - ORDEN -->
   <record id="view_service_order_search" model="ir.ui.view">
     <field name="name">service.order.search</field>
     <field name="model">service.order</field>
@@ -13,9 +15,8 @@
         <field name="name" string="Folio"/>
         <field name="partner_id" string="Cliente"/>
         
-        <!-- BUSCAR POR SERVICIO DENTRO DE LA ORDEN 
-             (Permite escribir el nombre del servicio en la barra de búsqueda) -->
-        <field name="line_ids" string="Servicio / Residuo" 
+        <!-- BÚSQUEDA: Permite escribir el nombre del servicio para encontrar la orden -->
+        <field name="line_ids" string="Contiene Servicio/Residuo" 
                filter_domain="['|', ('line_ids.name', 'ilike', self), ('line_ids.product_id.name', 'ilike', self)]"/>
 
         <field name="user_id" string="Comercial"/>
@@ -25,9 +26,6 @@
         <field name="destinatario_id"/>
         <field name="numero_placa"/>
         <field name="partner_city" string="Ciudad Cliente"/>
-
-        <!-- Campo calculado para usar en filtros/agrupaciones -->
-        <field name="service_names_str" string="Nombre de Servicio (Texto)"/>
 
         <separator/>
 
@@ -46,13 +44,10 @@
         <filter string="Fecha Orden" name="filter_date_order" date="date_order"/>
         
         <!-- Agrupadores (Group By) -->
-          <!-- Principales -->
+        <group expand="0" string="Agrupar Por">
           <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
           <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
           <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
-          
-          <!-- NUEVO: Agrupación por Nombre de Servicio (Usando el campo espejo del modelo) -->
-          <filter string="Nombre de Servicio" name="group_service_name" context="{'group_by': 'service_names_str'}"/>
           
           <!-- Geográficos -->
           <filter string="Ciudad" name="group_city" context="{'group_by': 'partner_city'}"/>
@@ -68,18 +63,16 @@
           <filter string="Estado Orden" name="group_state" context="{'group_by': 'state'}"/>
           <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
           <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
+        </group>
       </search>
     </field>
   </record>
 
-  <!-- =========================================================
-       ACCIÓN PRINCIPAL (WINDOW ACTION) - ORDEN
-       ========================================================= -->
+  <!-- ACCIÓN PRINCIPAL (WINDOW ACTION) - ORDEN -->
   <record id="action_service_order" model="ir.actions.act_window">
     <field name="name">Órdenes de Servicio</field>
     <field name="res_model">service.order</field>
     <field name="view_mode">list,form,pivot,graph</field>
-    <!-- Referencia a la vista Search -->
     <field name="search_view_id" ref="view_service_order_search"/>
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">
@@ -88,9 +81,7 @@
     </field>
   </record>
 
-  <!-- =========================================================
-       ACCIÓN DE SERVIDOR: FACTURACIÓN MASIVA
-       ========================================================= -->
+  <!-- ACCIÓN DE SERVIDOR: FACTURACIÓN MASIVA -->
   <record id="action_service_order_mass_invoice" model="ir.actions.server">
     <field name="name">Crear Factura</field>
     <field name="model_id" ref="model_service_order"/>
@@ -103,9 +94,7 @@
     </field>
   </record>
 
-  <!-- =========================================================
-       MENÚ RAÍZ
-       ========================================================= -->
+  <!-- MENÚ RAÍZ -->
   <record id="menu_service_order_root" model="ir.ui.menu">
     <field name="name">Servicios</field>
     <field name="sequence">10</field>
@@ -113,36 +102,22 @@
     <field name="web_icon">service_order,static/description/icon.png</field>
   </record>
 
-  <!-- =========================================================
-       VISTA PIVOT (TABLA DINÁMICA) - ORDEN
-       ========================================================= -->
+  <!-- VISTA PIVOT (ORDEN) -->
   <record id="view_service_order_pivot" model="ir.ui.view">
     <field name="name">service.order.pivot</field>
     <field name="model">service.order</field>
     <field name="arch" type="xml">
-      <pivot string="Análisis de Órdenes de Servicio" sample="1">
-        <!-- Filas (Rows) -->
+      <pivot string="Análisis de Órdenes" sample="1">
         <field name="partner_id" type="row"/>
-        <!-- NUEVO: Agregado para que aparezca disponible en el Pivot -->
-        <field name="service_names_str" type="row"/>
-        
-        <!-- Columnas (Cols) -->
         <field name="date_order" interval="month" type="col"/>
-
-        <!-- Medidas -->
         <field name="total_weight_kg" type="measure" string="Peso (Kg)"/>
         <field name="total_product_qty" type="measure" string="Bultos/Cant."/>
-        <field name="lines_count" type="measure" string="Nº Líneas"/>
-        <field name="amount_untaxed" type="measure" string="Subtotal ($)"/>
-        <field name="amount_tax" type="measure" string="Impuestos ($)"/>
         <field name="amount_total" type="measure" string="Total ($)"/>
       </pivot>
     </field>
   </record>
 
-  <!-- =========================================================
-       VISTA GRAPH - ORDEN
-       ========================================================= -->
+  <!-- VISTA GRAPH (ORDEN) -->
   <record id="view_service_order_graph" model="ir.ui.view">
     <field name="name">service.order.graph</field>
     <field name="model">service.order</field>
@@ -154,9 +129,7 @@
     </field>
   </record>
 
-  <!-- =========================================================
-       VISTA LISTA - ORDEN
-       ========================================================= -->
+  <!-- VISTA LISTA (ORDEN) -->
   <record id="view_service_order_list" model="ir.ui.view">
     <field name="name">service.order.list</field>
     <field name="model">service.order</field>
@@ -167,13 +140,8 @@
         <field name="date_order" string="Fecha"/>
         <field name="partner_id" string="Cliente"/>
         <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="show"/>
-        
-        <!-- Agregado opcionalmente por si quieres ver los servicios en la lista -->
-        <field name="service_names_str" string="Servicios" optional="hide"/>
-        
         <field name="sale_order_id" string="Cotización" readonly="1" optional="hide"/>
         
-        <!-- Columnas adicionales -->
         <field name="total_weight_kg" string="Peso Total" sum="Total Peso" optional="show"/>
         <field name="total_product_qty" string="Cant. Total" sum="Total Items" optional="hide"/>
         <field name="amount_total" string="Total ($)" sum="Total" optional="show" widget="monetary" decoration-bf="1"/>
@@ -194,46 +162,20 @@
     </field>
   </record>
 
-  <!-- =========================================================
-       VISTA FORMULARIO - ORDEN
-       ========================================================= -->
+  <!-- VISTA FORMULARIO (ORDEN) -->
   <record id="view_service_order_form" model="ir.ui.view">
     <field name="name">service.order.form</field>
     <field name="model">service.order</field>
     <field name="type">form</field>
     <field name="arch" type="xml">
       <form string="Orden de Servicio">
-
         <header>
-          <button name="action_confirm"
-                  string="Confirmar"
-                  type="object"
-                  class="btn-primary"
-                  invisible="state != 'draft'"/>
-
-          <button name="action_set_done"
-                  string="Marcar Completado"
-                  type="object"
-                  class="btn-secondary"
-                  invisible="state != 'confirmed'"/>
-
-          <button name="action_cancel"
-                  string="Cancelar"
-                  type="object"
-                  class="btn-secondary"
-                  invisible="state not in ['draft', 'confirmed', 'done'] or invoicing_status in ['invoiced', 'paid']"/>
-
-          <button name="action_set_draft"
-                  string="Restablecer a Borrador"
-                  type="object"
-                  class="btn-secondary"
-                  invisible="state not in ['cancel', 'confirmed', 'done'] or invoicing_status in ['invoiced', 'paid']"/>
-
-          <field name="state"
-                 widget="statusbar"
-                 statusbar_visible="draft,confirmed,done,cancel"/>
+          <button name="action_confirm" string="Confirmar" type="object" class="btn-primary" invisible="state != 'draft'"/>
+          <button name="action_set_done" string="Marcar Completado" type="object" class="btn-secondary" invisible="state != 'confirmed'"/>
+          <button name="action_cancel" string="Cancelar" type="object" class="btn-secondary" invisible="state not in ['draft', 'confirmed', 'done'] or invoicing_status in ['invoiced', 'paid']"/>
+          <button name="action_set_draft" string="Restablecer a Borrador" type="object" class="btn-secondary" invisible="state not in ['cancel', 'confirmed', 'done'] or invoicing_status in ['invoiced', 'paid']"/>
+          <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,done,cancel"/>
         </header>
-
         <sheet>
           <widget name="web_ribbon" title="Borrador" bg_color="text-bg-info" invisible="state != 'draft'"/>
           <widget name="web_ribbon" title="Confirmada" bg_color="text-bg-warning" invisible="state != 'confirmed'"/>
@@ -245,26 +187,16 @@
           <widget name="web_ribbon" title="Fact. Borrador" bg_color="text-bg-warning" invisible="invoicing_status != 'draft'"/>
 
           <div class="oe_button_box" name="button_box">
-            <button name="action_view_linked_invoices"
-                    type="object"
-                    class="oe_stat_button"
-                    icon="fa-file-text-o"
-                    invisible="invoice_count == 0">
+            <button name="action_view_linked_invoices" type="object" class="oe_stat_button" icon="fa-file-text-o" invisible="invoice_count == 0">
               <field name="invoice_count" widget="statinfo" string="Facturas"/>
             </button>
           </div>
 
           <div class="oe_title">
-            <h1>
-              <field name="name" class="o_inline"/>
-            </h1>
+            <h1><field name="name" class="o_inline"/></h1>
             <div class="text-muted">
               <span>Orden de servicio vinculada a </span>
-              <field name="sale_order_id"
-                     class="o_inline"
-                     placeholder="Sin cotización"
-                     readonly="1"
-                     options="{'no_create': True}"/>
+              <field name="sale_order_id" class="o_inline" placeholder="Sin cotización" readonly="1" options="{'no_create': True}"/>
             </div>
           </div>
 
@@ -274,52 +206,19 @@
                 <group string="Cliente y Referencias">
                   <field name="partner_id" options="{'no_create': True}" readonly="sale_order_id"/>
                   <field name="user_id" widget="many2one_avatar_user"/>
-
-                  <field name="generador_id"
-                         options="{'no_create': True}"
-                         domain="[
-                           '&amp;',
-                             '|', ('parent_id', '=', partner_id), ('id', '=', partner_id),
-                             ('category_id.name', 'ilike', 'Generador')
-                         ]"
-                         placeholder="(Sin contacto con etiqueta Generador)"/>
-
-                  <field name="generador_responsable_id"
-                         options="{'no_create': True}"
-                         domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
-                         placeholder="Seleccionar contacto del cliente..."/>
-
-                  <field name="destinatario_id"
-                         options="{'no_create': True}"
-                         domain="[('category_id.name', 'ilike', 'Destino Final')]"
-                         placeholder="Seleccionar destinatario final..."/>
-
+                  <field name="generador_id" options="{'no_create': True}" domain="['&amp;', '|', ('parent_id', '=', partner_id), ('id', '=', partner_id), ('category_id.name', 'ilike', 'Generador')]" placeholder="(Sin contacto con etiqueta Generador)"/>
+                  <field name="generador_responsable_id" options="{'no_create': True}" domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]" placeholder="Seleccionar contacto del cliente..."/>
+                  <field name="destinatario_id" options="{'no_create': True}" domain="[('category_id.name', 'ilike', 'Destino Final')]" placeholder="Seleccionar destinatario final..."/>
                   <field name="sale_order_id" string="Cotización" readonly="1" options="{'no_create': True}"/>
                   <field name="date_order"/>
                 </group>
-
                 <group string="Contacto y Recolección">
-                  <field name="contact_partner_id"
-                         options="{'no_create': True}"
-                         domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
-                         placeholder="Seleccionar contacto del cliente..."/>
-
-                  <field name="contact_phone" readonly="1"
-                         placeholder="Se toma del contacto seleccionado"/>
-
-                  <field name="pickup_location_id"
-                         options="{'no_create': True}"
-                         domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
-                         placeholder="Seleccionar ubicación de recolección..."/>
-
+                  <field name="contact_partner_id" options="{'no_create': True}" domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]" placeholder="Seleccionar contacto del cliente..."/>
+                  <field name="contact_phone" readonly="1" placeholder="Se toma del contacto seleccionado"/>
+                  <field name="pickup_location_id" options="{'no_create': True}" domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]" placeholder="Seleccionar ubicación de recolección..."/>
                   <field name="pickup_location" invisible="1"/>
-
                   <field name="transportista_id" string="Transportista" options="{'no_create': True}"/>
-
-                  <field name="transportista_responsable_id"
-                         options="{'no_create': True}"
-                         domain="['|', ('parent_id', '=', transportista_id), ('id', '=', transportista_id)]"
-                         placeholder="Seleccionar contacto del transportista..."/>
+                  <field name="transportista_responsable_id" options="{'no_create': True}" domain="['|', ('parent_id', '=', transportista_id), ('id', '=', transportista_id)]" placeholder="Seleccionar contacto del transportista..."/>
                 </group>
               </group>
             </page>
@@ -331,14 +230,12 @@
                   <field name="numero_placa" string="Placas"/>
                   <field name="chofer_id" string="Chofer" options="{'no_create': True}"/>
                 </group>
-
                 <group string="Remolques y Básculas">
                   <field name="remolque1" string="Remolque 1"/>
                   <field name="remolque2" string="Remolque 2"/>
                   <field name="bascula_1" string="Báscula 1"/>
                   <field name="bascula_2" string="Báscula 2"/>
                   <field name="numero_bascula" invisible="1"/>
-                  
                   <div colspan="2" class="mt-4 border-top pt-2">
                      <label for="total_weight_kg" class="fw-bold"/> <field name="total_weight_kg" class="oe_inline fw-bold"/> kg<br/>
                      <label for="total_product_qty" class="fw-bold"/> <field name="total_product_qty" class="oe_inline fw-bold"/> items
@@ -352,25 +249,17 @@
                 <list editable="bottom">
                   <field name="product_id" string="Producto/Servicio" options="{'no_create': True}"/>
                   <field name="currency_id" column_invisible="1"/>
-
                   <field name="name" string="Equivalente / Descripción"/>
                   <field name="residue_type" string="Tipo" optional="hide"/>
                   <field name="plan_manejo" string="Plan de Manejo" optional="hide"/>
                   <field name="packaging_id" string="Embalaje"/>
-
-                  <field name="price_unit"
-                         string="Precio Unitario"
-                         widget="monetary"
-                         options="{'currency_field': 'currency_id'}"
-                         invisible="not product_id"/>
-
+                  <field name="price_unit" string="Precio Unitario" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not product_id"/>
                   <field name="capacity" string="Capacidad" invisible="not product_id"/>
                   <field name="weight_kg" string="Peso (kg)" sum="Total Kg" invisible="not product_id"/>
                   <field name="product_uom_qty" string="Cantidad" sum="Total Cantidad" invisible="not product_id"/>
                   <field name="product_uom" string="UoM" invisible="not product_id"/>
                 </list>
               </field>
-              
               <group class="oe_subtotal_footer oe_right">
                   <field name="amount_untaxed" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                   <field name="amount_tax" widget="monetary" options="{'currency_field': 'currency_id'}"/>
@@ -383,18 +272,122 @@
 
             <page string="Observaciones" name="page_notes">
               <group string="Notas">
-                <field name="observaciones"
-                       nolabel="1"
-                       placeholder="Ingrese observaciones adicionales..."
-                       widget="text"/>
+                <field name="observaciones" nolabel="1" placeholder="Ingrese observaciones adicionales..." widget="text"/>
               </group>
             </page>
-
           </notebook>
-
         </sheet>
       </form>
     </field>
   </record>
+
+  <!-- =========================================================
+       2. VISTAS DEL REPORTES DETALLADOS (LÍNEAS)
+       RESTITUIDAS: Estas vistas permiten ver "Línea por Línea"
+       ========================================================= -->
+
+  <!-- 1. Vista Pivot para Líneas -->
+  <record id="view_service_order_line_pivot" model="ir.ui.view">
+    <field name="name">service.order.line.pivot</field>
+    <field name="model">service.order.line</field>
+    <field name="arch" type="xml">
+      <pivot string="Análisis Detallado de Residuos" sample="1">
+        <!-- Filas: El Residuo (Producto) -->
+        <field name="product_id" type="row"/>
+        <!-- AQUÍ SE VE EL NOMBRE DE LA LÍNEA (No concatenado) -->
+        <field name="name" type="row"/>
+        
+        <!-- Columnas: Tiempo -->
+        <field name="date_order" interval="month" type="col"/>
+
+        <!-- Medidas -->
+        <field name="weight_kg" type="measure" string="Peso (Kg)"/>
+        <field name="product_uom_qty" type="measure" string="Cantidad"/>
+        <field name="price_subtotal" type="measure" string="Subtotal ($)"/>
+
+        <!-- Campos adicionales disponibles -->
+        <field name="partner_id"/>
+        <field name="user_id"/>
+        <field name="residue_type"/>
+        <field name="plan_manejo"/>
+        <field name="packaging_id"/>
+        <field name="state"/>
+        <field name="description" string="Descripción (Comp)"/>
+      </pivot>
+    </field>
+  </record>
+
+  <!-- 2. Vista Graph para Líneas -->
+  <record id="view_service_order_line_graph" model="ir.ui.view">
+    <field name="name">service.order.line.graph</field>
+    <field name="model">service.order.line</field>
+    <field name="arch" type="xml">
+      <graph string="Análisis Gráfico" type="bar" sample="1">
+        <field name="date_order" interval="month"/>
+        <field name="product_id"/>
+        <field name="weight_kg" type="measure"/>
+      </graph>
+    </field>
+  </record>
+
+  <!-- 3. Vista Search para Líneas -->
+  <record id="view_service_order_line_search" model="ir.ui.view">
+    <field name="name">service.order.line.search</field>
+    <field name="model">service.order.line</field>
+    <field name="arch" type="xml">
+      <search string="Buscar Residuos">
+        <field name="product_id" string="Residuo/Servicio"/>
+        <field name="name" string="Nombre de Servicio / Equivalente"/>
+        <field name="description" string="Descripción Calculada"/>
+        <field name="partner_id" string="Cliente"/>
+        <field name="service_order_id" string="Orden de Servicio"/>
+        <field name="residue_type"/>
+        <field name="plan_manejo"/>
+        
+        <separator/>
+        <filter string="Confirmadas/Completadas" name="confirmed_done" domain="[('state', 'in', ['confirmed', 'done'])]"/>
+        <filter string="Pendientes" name="draft" domain="[('state', '=', 'draft')]"/>
+        <separator/>
+        <filter string="Este Mes" name="this_month" date="date_order"/>
+
+        <group expand="0" string="Agrupar Por">
+            <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
+            <filter string="Residuo (Producto)" name="group_product" context="{'group_by':'product_id'}"/>
+            
+            <!-- AQUÍ SÍ FUNCIONA LA AGRUPACIÓN POR NOMBRE DE LÍNEA -->
+            <filter string="Nombre del Servicio" name="group_name" context="{'group_by':'name'}"/>
+            
+            <filter string="Descripción (Comp)" name="group_description" context="{'group_by':'description'}"/>
+            <filter string="Tipo Residuo" name="group_type" context="{'group_by':'residue_type'}"/>
+            <filter string="Plan de Manejo" name="group_plan" context="{'group_by':'plan_manejo'}"/>
+            <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>
+            <filter string="Fecha" name="group_date" context="{'group_by':'date_order:month'}"/>
+            <filter string="Comercial" name="group_user" context="{'group_by':'user_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <!-- 4. Acción de Ventana (Reporte Líneas) -->
+  <record id="action_service_order_line_analysis" model="ir.actions.act_window">
+    <field name="name">Análisis Detallado de Líneas</field>
+    <field name="res_model">service.order.line</field>
+    <field name="view_mode">pivot,graph,list</field>
+    <field name="search_view_id" ref="view_service_order_line_search"/>
+    <field name="context">{'search_default_confirmed_done': 1}</field>
+  </record>
+
+  <!-- 5. Elementos de Menú para el Reporte -->
+  <!-- Esto permite acceder al reporte "Línea por Línea" desde el menú -->
+  <menuitem id="menu_service_order_analysis_root"
+            name="Informes"
+            parent="menu_service_order_root"
+            sequence="20"/>
+
+  <menuitem id="menu_service_order_residue_analysis"
+            name="Análisis de Residuos"
+            parent="menu_service_order_analysis_root"
+            action="action_service_order_line_analysis"
+            sequence="1"/>
 
 </odoo>
