@@ -13,8 +13,8 @@
         <field name="name" string="Folio"/>
         <field name="partner_id" string="Cliente"/>
         
-        <!-- NUEVO: BUSCAR POR SERVICIO DENTRO DE LA ORDEN 
-             Esto permite escribir el nombre del servicio en la barra de búsqueda -->
+        <!-- BUSCAR POR SERVICIO DENTRO DE LA ORDEN 
+             (Permite escribir el nombre del servicio en la barra de búsqueda) -->
         <field name="line_ids" string="Servicio / Residuo" 
                filter_domain="['|', ('line_ids.name', 'ilike', self), ('line_ids.product_id.name', 'ilike', self)]"/>
 
@@ -25,6 +25,9 @@
         <field name="destinatario_id"/>
         <field name="numero_placa"/>
         <field name="partner_city" string="Ciudad Cliente"/>
+
+        <!-- Campo calculado para usar en filtros/agrupaciones -->
+        <field name="service_names_str" string="Nombre de Servicio (Texto)"/>
 
         <separator/>
 
@@ -43,14 +46,14 @@
         <filter string="Fecha Orden" name="filter_date_order" date="date_order"/>
         
         <!-- Agrupadores (Group By) -->
+        <group expand="0" string="Agrupar Por">
           <!-- Principales -->
           <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
           <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
           <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
           
-          <!-- NOTA: Se eliminó el group_by de line_ids.name aquí porque causaba el error RPC.
-               Para ver el desglose por nombre en Pivot, se debe usar la vista de "Análisis de Residuos".
-               Aquí solo podemos FILTRAR (Buscar), no Agrupar. -->
+          <!-- NUEVO: Agrupación por Nombre de Servicio (Usando el campo espejo del modelo) -->
+          <filter string="Nombre de Servicio" name="group_service_name" context="{'group_by': 'service_names_str'}"/>
           
           <!-- Geográficos -->
           <filter string="Ciudad" name="group_city" context="{'group_by': 'partner_city'}"/>
@@ -66,6 +69,7 @@
           <filter string="Estado Orden" name="group_state" context="{'group_by': 'state'}"/>
           <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
           <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
+        </group>
       </search>
     </field>
   </record>
@@ -121,6 +125,8 @@
       <pivot string="Análisis de Órdenes de Servicio" sample="1">
         <!-- Filas (Rows) -->
         <field name="partner_id" type="row"/>
+        <!-- NUEVO: Agregado para que aparezca disponible en el Pivot -->
+        <field name="service_names_str" type="row"/>
         
         <!-- Columnas (Cols) -->
         <field name="date_order" interval="month" type="col"/>
@@ -163,6 +169,10 @@
         <field name="date_order" string="Fecha"/>
         <field name="partner_id" string="Cliente"/>
         <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="show"/>
+        
+        <!-- Agregado opcionalmente por si quieres ver los servicios en la lista -->
+        <field name="service_names_str" string="Servicios" optional="hide"/>
+        
         <field name="sale_order_id" string="Cotización" readonly="1" optional="hide"/>
         
         <!-- Columnas adicionales -->
@@ -388,114 +398,5 @@
       </form>
     </field>
   </record>
-
-  <!-- =========================================================
-       NUEVO: ANÁLISIS DE RESIDUOS (LINE PIVOT/GRAPH)
-       Esta sección permite reportar sobre TODAS las líneas
-       ========================================================= -->
-
-  <!-- 1. Vista Pivot para Líneas -->
-  <record id="view_service_order_line_pivot" model="ir.ui.view">
-    <field name="name">service.order.line.pivot</field>
-    <field name="model">service.order.line</field>
-    <field name="arch" type="xml">
-      <pivot string="Análisis de Residuos" sample="1">
-        <!-- Filas: El Residuo (Producto) -->
-        <field name="product_id" type="row"/>
-        <!-- NUEVO: Agregado nombre explícito para poder bajar el nivel de detalle -->
-        <field name="name" type="row"/>
-        
-        <!-- Columnas: Tiempo -->
-        <field name="date_order" interval="month" type="col"/>
-
-        <!-- Medidas -->
-        <field name="weight_kg" type="measure" string="Peso (Kg)"/>
-        <field name="product_uom_qty" type="measure" string="Cantidad"/>
-        <field name="price_subtotal" type="measure" string="Subtotal ($)"/>
-
-        <!-- Campos adicionales disponibles -->
-        <field name="partner_id"/>
-        <field name="user_id"/>
-        <field name="residue_type"/>
-        <field name="plan_manejo"/>
-        <field name="packaging_id"/>
-        <field name="state"/>
-        <!-- description es el computado, name es el manual -->
-        <field name="description" string="Descripción (Comp)"/>
-      </pivot>
-    </field>
-  </record>
-
-  <!-- 2. Vista Graph para Líneas -->
-  <record id="view_service_order_line_graph" model="ir.ui.view">
-    <field name="name">service.order.line.graph</field>
-    <field name="model">service.order.line</field>
-    <field name="arch" type="xml">
-      <graph string="Análisis Gráfico" type="bar" sample="1">
-        <field name="date_order" interval="month"/>
-        <field name="product_id"/>
-        <field name="weight_kg" type="measure"/>
-      </graph>
-    </field>
-  </record>
-
-  <!-- 3. Vista Search para Líneas -->
-  <record id="view_service_order_line_search" model="ir.ui.view">
-    <field name="name">service.order.line.search</field>
-    <field name="model">service.order.line</field>
-    <field name="arch" type="xml">
-      <search string="Buscar Residuos">
-        <field name="product_id" string="Residuo/Servicio"/>
-        <!-- NUEVO: Agregar nombre a la búsqueda -->
-        <field name="name" string="Nombre de Servicio / Equivalente"/>
-        <field name="description" string="Descripción Calculada"/>
-        <field name="partner_id" string="Cliente"/>
-        <field name="service_order_id" string="Orden de Servicio"/>
-        <field name="residue_type"/>
-        <field name="plan_manejo"/>
-        
-        <separator/>
-        <filter string="Confirmadas/Completadas" name="confirmed_done" domain="[('state', 'in', ['confirmed', 'done'])]"/>
-        <filter string="Pendientes" name="draft" domain="[('state', '=', 'draft')]"/>
-        <separator/>
-        <filter string="Este Mes" name="this_month" date="date_order"/>
-
-            <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
-            <filter string="Residuo (Producto)" name="group_product" context="{'group_by':'product_id'}"/>
-            
-            <!-- AQUÍ SÍ FUNCIONA porque el modelo base es service.order.line -->
-            <filter string="Nombre del Servicio" name="group_name" context="{'group_by':'name'}"/>
-            
-            <filter string="Descripción (Comp)" name="group_description" context="{'group_by':'description'}"/>
-            <filter string="Tipo Residuo" name="group_type" context="{'group_by':'residue_type'}"/>
-            <filter string="Plan de Manejo" name="group_plan" context="{'group_by':'plan_manejo'}"/>
-            <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>
-            <filter string="Fecha" name="group_date" context="{'group_by':'date_order:month'}"/>
-            <filter string="Comercial" name="group_user" context="{'group_by':'user_id'}"/>
-      </search>
-    </field>
-  </record>
-
-  <!-- 4. Acción de Ventana (Reporte Líneas) -->
-  <record id="action_service_order_line_analysis" model="ir.actions.act_window">
-    <field name="name">Análisis Detallado de Líneas</field>
-    <field name="res_model">service.order.line</field>
-    <field name="view_mode">pivot,graph,list</field>
-    <field name="search_view_id" ref="view_service_order_line_search"/>
-    <field name="context">{'search_default_confirmed_done': 1}</field>
-    <!-- SIN DOMAIN para que salgan todas las líneas, incluidas las sin producto -->
-  </record>
-
-  <!-- 5. Elemento de Menú para el Reporte -->
-  <menuitem id="menu_service_order_analysis_root"
-            name="Informes"
-            parent="menu_service_order_root"
-            sequence="20"/>
-
-  <menuitem id="menu_service_order_residue_analysis"
-            name="Análisis de Residuos"
-            parent="menu_service_order_analysis_root"
-            action="action_service_order_line_analysis"
-            sequence="1"/>
 
 </odoo>
