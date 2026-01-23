@@ -36,7 +36,7 @@ class ServiceOrder(models.Model):
         help="Usuario responsable de la venta/servicio."
     )
 
-    # Campos geográficos "aplanados" (store=True) para que aparezcan en Agrupar Por
+    # Campos geográficos "aplanados"
     partner_city = fields.Char(
         related='partner_id.city', 
         store=True, 
@@ -76,7 +76,7 @@ class ServiceOrder(models.Model):
     )
 
     # =========================================================
-    # INVOICING_STATUS CON ESTADOS GRANULARES
+    # INVOICING_STATUS
     # =========================================================
     invoicing_status = fields.Selection(
         [
@@ -97,7 +97,10 @@ class ServiceOrder(models.Model):
         string='Líneas',
     )
 
-    observaciones = fields.Text(string='Observaciones')
+    observaciones = fields.Text(
+        string='Observaciones',
+        tracking=True,  # Habilitado tracking
+    )
 
     service_frequency = fields.Selection([
         ('diaria', 'Diaria'),
@@ -116,10 +119,10 @@ class ServiceOrder(models.Model):
         ('estacional', 'Estacional'),
         ('irregular', 'Irregular'),
         ('unico', 'Único'),
-    ], string="Frecuencia del Servicio")
+    ], string="Frecuencia del Servicio", tracking=True) # Habilitado tracking
 
-    residue_new = fields.Boolean(string='Residuo Nuevo')
-    requiere_visita = fields.Boolean(string='Requiere Visita')
+    residue_new = fields.Boolean(string='Residuo Nuevo', tracking=True)
+    requiere_visita = fields.Boolean(string='Requiere Visita', tracking=True)
 
     # =========================================================
     # UBICACIÓN DE RECOLECCIÓN
@@ -134,7 +137,7 @@ class ServiceOrder(models.Model):
     pickup_location = fields.Char(
         string='Ubicación de Recolección (texto)',
         help='Campo legacy.',
-        tracking=False,
+        tracking=True, # Habilitado tracking
     )
 
     # =========================================================
@@ -150,6 +153,7 @@ class ServiceOrder(models.Model):
     generador_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Generador',
+        tracking=True, # Habilitado tracking
     )
 
     # =========================================================
@@ -167,12 +171,14 @@ class ServiceOrder(models.Model):
         compute='_compute_contact_legacy',
         store=True,
         readonly=False,
+        tracking=True, # Habilitado tracking
     )
     contact_phone = fields.Char(
         string='Teléfono de Contacto (legacy)',
         compute='_compute_contact_legacy',
         store=True,
         readonly=False,
+        tracking=True, # Habilitado tracking
     )
 
     # =========================================================
@@ -181,26 +187,28 @@ class ServiceOrder(models.Model):
     transportista_id = fields.Many2one(
         'res.partner',
         string='Transportista',
-        default=lambda self: self.env.company.partner_id
+        default=lambda self: self.env.company.partner_id,
+        tracking=True, # Habilitado tracking
     )
 
-    camion = fields.Char(string='Camión')
-    numero_placa = fields.Char(string='Número de Placa')
-    chofer_id = fields.Many2one('res.partner', string='Chofer')
+    camion = fields.Char(string='Camión', tracking=True)
+    numero_placa = fields.Char(string='Número de Placa', tracking=True)
+    chofer_id = fields.Many2one('res.partner', string='Chofer', tracking=True)
 
     transportista_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Transportista',
+        tracking=True, # Habilitado tracking
     )
 
-    remolque1 = fields.Char(string='Remolque 1')
-    remolque2 = fields.Char(string='Remolque 2')
+    remolque1 = fields.Char(string='Remolque 1', tracking=True)
+    remolque2 = fields.Char(string='Remolque 2', tracking=True)
 
-    bascula_1 = fields.Char(string='Báscula 1')
-    bascula_2 = fields.Char(string='Báscula 2')
-    numero_bascula = fields.Char(string='Número de Báscula (legacy)')
+    bascula_1 = fields.Char(string='Báscula 1', tracking=True)
+    bascula_2 = fields.Char(string='Báscula 2', tracking=True)
+    numero_bascula = fields.Char(string='Número de Báscula (legacy)', tracking=True)
 
-    destinatario_id = fields.Many2one('res.partner', string='Destinatario Final')
+    destinatario_id = fields.Many2one('res.partner', string='Destinatario Final', tracking=True)
 
     # =========================================================
     # FACTURACIÓN
@@ -222,7 +230,7 @@ class ServiceOrder(models.Model):
     )
 
     # =========================================================
-    # CAMPOS FINANCIEROS Y MÉTRICAS (Actualizado para Pivot)
+    # CAMPOS FINANCIEROS Y MÉTRICAS
     # =========================================================
     currency_id = fields.Many2one(
         'res.currency',
@@ -238,7 +246,6 @@ class ServiceOrder(models.Model):
         currency_field='currency_id',
     )
     
-    # NUEVO: Impuestos y Total
     amount_tax = fields.Monetary(
         string='Impuestos',
         compute='_compute_amounts',
@@ -252,7 +259,6 @@ class ServiceOrder(models.Model):
         currency_field='currency_id',
     )
 
-    # NUEVO: Métricas Físicas/Operativas
     total_weight_kg = fields.Float(
         string='Peso Total (Kg)',
         compute='_compute_amounts',
