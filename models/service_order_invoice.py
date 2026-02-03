@@ -12,6 +12,14 @@ class ServiceOrder(models.Model):
         Crea facturas desde una o múltiples órdenes de servicio.
         Agrupa las órdenes seleccionadas por Cliente y Moneda.
         """
+        # ==========================================================================
+        # AUTO-CORRECCIÓN: Forzamos el recálculo antes de validar.
+        # Si la factura fue borrada manualmente y la orden quedó "trabada" en
+        # estado 'invoiced', esto detectará que la factura ya no existe
+        # y cambiará el estado a 'no' automáticamente, permitiendo crear una nueva.
+        # ==========================================================================
+        self._compute_invoicing_status()
+
         # Filtrar solo las órdenes que se pueden facturar (Done y sin factura activa)
         orders_to_invoice = self.filtered(lambda so: so.state == 'done' and so.invoicing_status not in ('invoiced', 'paid', 'draft'))
 
@@ -20,6 +28,8 @@ class ServiceOrder(models.Model):
                 # Si era una sola y falló, dar error específico
                 if self.state != 'done':
                     raise UserError(_("La orden debe estar en estado 'Completado' para facturarse."))
+                
+                # Gracias al recálculo inicial, si entra aquí es porque DE VERDAD existe una factura vinculada
                 if self.invoicing_status != 'no':
                     raise UserError(_("Esta orden ya tiene una factura activa."))
             else:

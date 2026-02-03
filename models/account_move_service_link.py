@@ -29,10 +29,20 @@ class AccountMove(models.Model):
 
     def unlink(self):
         """
-        Al eliminar facturas, el campo computado invoicing_status
-        de las órdenes de servicio se recalculará automáticamente.
+        Al eliminar facturas, aseguramos que el estado de facturación
+        de las órdenes de servicio se recalcule correctamente.
         """
-        return super(AccountMove, self).unlink()
+        # 1. Guardar referencia a las órdenes antes de borrar la factura
+        orders_to_update = self.mapped('service_order_ids')
+
+        # 2. Eliminar la factura
+        result = super(AccountMove, self).unlink()
+
+        # 3. Forzar actualización de estado en las órdenes afectadas
+        if orders_to_update:
+            orders_to_update._compute_invoicing_status()
+
+        return result
 
 
 class AccountMoveLine(models.Model):
