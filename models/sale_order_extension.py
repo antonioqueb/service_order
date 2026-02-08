@@ -139,3 +139,9 @@ class SaleOrder(models.Model):
             'domain': [('sale_order_id', '=', self.id)],
         })
         return action
+
+    def _compute_service_order_count(self):
+        for order in self:
+            order.service_order_count = self.env['service.order'].search_count([
+                ('sale_order_id', '=', order.id)
+            ])
