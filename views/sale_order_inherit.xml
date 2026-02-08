@@ -4,19 +4,25 @@
     <field name="model">sale.order</field>
     <field name="inherit_id" ref="sale.view_order_form"/>
     <field name="arch" type="xml">
+      <!-- Botón crear en header -->
       <xpath expr="//header" position="inside">
-        <!-- Botón para crear órdenes de servicio -->
         <button name="action_create_service_order"
-                string="Crear Orden de Servicio"
+                string="Crear Servicio"
                 type="object"
                 class="btn-secondary"
                 groups="sales_team.group_sale_salesman"/>
-        <!-- Botón para ver las órdenes de servicio creadas -->
+      </xpath>
+
+      <!-- Smart button en button_box -->
+      <xpath expr="//div[@name='button_box']" position="inside">
         <button name="action_view_service_orders"
-                string="Ver Órdenes de Servicio"
                 type="object"
-                class="btn-secondary"
-                groups="sales_team.group_sale_salesman"/>
+                class="oe_stat_button"
+                icon="fa-wrench"
+                groups="sales_team.group_sale_salesman"
+                invisible="service_order_count == 0">
+          <field name="service_order_count" widget="statinfo" string="Servicios"/>
+        </button>
       </xpath>
     </field>
   </record>
