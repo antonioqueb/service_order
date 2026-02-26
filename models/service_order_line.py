@@ -40,7 +40,6 @@ class ServiceOrderLine(models.Model):
         readonly=True
     )
     
-    # -- Nuevas dimensiones para que el reporte sea completo --
     partner_city = fields.Char(
         related='service_order_id.partner_id.city',
         store=True,
@@ -56,7 +55,6 @@ class ServiceOrderLine(models.Model):
         store=True,
         string="Generador"
     )
-    # ---------------------------------------------------------
     
     price_subtotal = fields.Float(
         string='Subtotal',
@@ -69,15 +67,12 @@ class ServiceOrderLine(models.Model):
     def _compute_price_subtotal(self):
         for line in self:
             line.price_subtotal = line.price_unit * line.product_uom_qty
-    # =========================================================
 
-    # CAMBIO: Char para permitir agrupación en Pivot
     name = fields.Char(
         string='Equivalente / Descripción',
         help='Descripción o comentario que venía en la línea de la orden de venta'
     )
 
-    # IMPORTANTE: store=True permite agrupar por este campo en el Pivot
     description = fields.Char(
         string='Residuo / Equivalente',
         compute='_compute_description', 
@@ -159,12 +154,10 @@ class ServiceOrderLine(models.Model):
                 if not rec.price_unit:
                     rec.price_unit = rec.product_id.lst_price
 
+                # packaging_id es uom.uom genérico, no tiene relación con product_id
+                # Se deja vacío para que el usuario lo seleccione manualmente si aplica
                 if not rec.packaging_id:
-                    packagings = self.env['uom.uom'].search([
-                        ('product_id', '=', rec.product_id.id)
-                    ], limit=1)
-                    if packagings:
-                        rec.packaging_id = packagings
+                    rec.packaging_id = False
             else:
                 rec.product_uom_qty = False
                 rec.product_uom = False
