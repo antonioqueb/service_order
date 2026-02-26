@@ -38,13 +38,13 @@ class ServiceOrder(models.Model):
 
     # Campos geográficos "aplanados"
     partner_city = fields.Char(
-        related='partner_id.city', 
-        store=True, 
+        related='partner_id.city',
+        store=True,
         string="Ciudad Cliente"
     )
     partner_state_id = fields.Many2one(
-        related='partner_id.state_id', 
-        store=True, 
+        related='partner_id.state_id',
+        store=True,
         string="Estado Cliente"
     )
     # =========================================================
@@ -99,7 +99,7 @@ class ServiceOrder(models.Model):
 
     observaciones = fields.Text(
         string='Observaciones',
-        tracking=True,  # Habilitado tracking
+        tracking=True,
     )
 
     service_frequency = fields.Selection([
@@ -119,7 +119,7 @@ class ServiceOrder(models.Model):
         ('estacional', 'Estacional'),
         ('irregular', 'Irregular'),
         ('unico', 'Único'),
-    ], string="Frecuencia del Servicio", tracking=True) # Habilitado tracking
+    ], string="Frecuencia del Servicio", tracking=True)
 
     residue_new = fields.Boolean(string='Residuo Nuevo', tracking=True)
     requiere_visita = fields.Boolean(string='Requiere Visita', tracking=True)
@@ -137,7 +137,7 @@ class ServiceOrder(models.Model):
     pickup_location = fields.Char(
         string='Ubicación de Recolección (texto)',
         help='Campo legacy.',
-        tracking=True, # Habilitado tracking
+        tracking=True,
     )
 
     # =========================================================
@@ -153,7 +153,7 @@ class ServiceOrder(models.Model):
     generador_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Generador',
-        tracking=True, # Habilitado tracking
+        tracking=True,
     )
 
     # =========================================================
@@ -171,14 +171,14 @@ class ServiceOrder(models.Model):
         compute='_compute_contact_legacy',
         store=True,
         readonly=False,
-        tracking=True, # Habilitado tracking
+        tracking=True,
     )
     contact_phone = fields.Char(
         string='Teléfono de Contacto (legacy)',
         compute='_compute_contact_legacy',
         store=True,
         readonly=False,
-        tracking=True, # Habilitado tracking
+        tracking=True,
     )
 
     # =========================================================
@@ -188,21 +188,65 @@ class ServiceOrder(models.Model):
         'res.partner',
         string='Transportista',
         default=lambda self: self.env.company.partner_id,
-        tracking=True, # Habilitado tracking
+        tracking=True,
     )
 
-    camion = fields.Char(string='Camión', tracking=True)
-    numero_placa = fields.Char(string='Número de Placa', tracking=True)
-    chofer_id = fields.Many2one('res.partner', string='Chofer', tracking=True)
+    # Vehículo principal (reemplaza al campo "camion" Char)
+    vehicle_id = fields.Many2one(
+        'fleet.vehicle',
+        string='Vehículo',
+        tracking=True,
+        help='Unidad de transporte principal.',
+    )
+
+    numero_placa = fields.Char(
+        string='Número de Placa',
+        tracking=True,
+        help='Se rellena automáticamente desde el vehículo seleccionado.',
+    )
+
+    chofer_id = fields.Many2one(
+        'res.partner',
+        string='Chofer',
+        tracking=True,
+        domain="[('is_driver', '=', True)]",
+    )
 
     transportista_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Transportista',
-        tracking=True, # Habilitado tracking
+        tracking=True,
     )
 
-    remolque1 = fields.Char(string='Remolque 1', tracking=True)
-    remolque2 = fields.Char(string='Remolque 2', tracking=True)
+    # Remolques como vehículos de flota filtrados por etiqueta
+    remolque1_id = fields.Many2one(
+        'fleet.vehicle',
+        string='Remolque 1',
+        tracking=True,
+        domain="[('tag_ids.name', 'ilike', 'remolque')]",
+        help='Seleccione el remolque 1 desde el catálogo de flota.',
+    )
+    remolque2_id = fields.Many2one(
+        'fleet.vehicle',
+        string='Remolque 2',
+        tracking=True,
+        domain="[('tag_ids.name', 'ilike', 'remolque')]",
+        help='Seleccione el remolque 2 desde el catálogo de flota.',
+    )
+
+    # Campos legacy para compatibilidad con reportes existentes (readonly, calculados)
+    remolque1 = fields.Char(
+        string='Remolque 1 (placa/nombre)',
+        compute='_compute_remolques_legacy',
+        store=True,
+        readonly=True,
+    )
+    remolque2 = fields.Char(
+        string='Remolque 2 (placa/nombre)',
+        compute='_compute_remolques_legacy',
+        store=True,
+        readonly=True,
+    )
 
     bascula_1 = fields.Char(string='Báscula 1', tracking=True)
     bascula_2 = fields.Char(string='Báscula 2', tracking=True)
@@ -213,12 +257,12 @@ class ServiceOrder(models.Model):
     # =========================================================
     # FACTURACIÓN
     # =========================================================
-    
+
     invoice_ids = fields.Many2many(
         'account.move',
-        'account_move_service_order_rel', 
-        'service_order_id',               
-        'move_id',                        
+        'account_move_service_order_rel',
+        'service_order_id',
+        'move_id',
         string='Facturas',
         readonly=True,
     )
@@ -245,7 +289,7 @@ class ServiceOrder(models.Model):
         store=True,
         currency_field='currency_id',
     )
-    
+
     amount_tax = fields.Monetary(
         string='Impuestos',
         compute='_compute_amounts',
@@ -272,14 +316,13 @@ class ServiceOrder(models.Model):
         store=True,
         help="Suma total de las cantidades (piezas, bultos, servicios) de esta orden."
     )
-    
+
     lines_count = fields.Integer(
         string='Nº Líneas',
         compute='_compute_amounts',
         store=True,
         help="Cantidad de tipos de residuos/servicios diferentes en la orden."
     )
-    # ------------------------------------
 
     # -------------------------------------------------------------------------
     # COMPUTES
@@ -289,55 +332,54 @@ class ServiceOrder(models.Model):
         Obtiene facturas reales (Many2many) + facturas legacy (origen).
         """
         self.ensure_one()
-        
-        # 1. Facturas vinculadas correctamente por el nuevo sistema Many2many
+
         invoices = self.invoice_ids
-        
-        # 2. Búsqueda Legacy: Por invoice_origin (si existen facturas viejas sin el vínculo relacional)
+
         if self.name:
             legacy_invoices = self.env['account.move'].search([
                 ('invoice_origin', '=', self.name),
                 ('move_type', '=', 'out_invoice'),
-                ('id', 'not in', invoices.ids) # Evitar duplicados
+                ('id', 'not in', invoices.ids)
             ])
             if legacy_invoices:
                 invoices |= legacy_invoices
-        
+
         return invoices
+
+    @api.depends('remolque1_id', 'remolque2_id')
+    def _compute_remolques_legacy(self):
+        for rec in self:
+            rec.remolque1 = rec.remolque1_id.license_plate or rec.remolque1_id.name or False
+            rec.remolque2 = rec.remolque2_id.license_plate or rec.remolque2_id.name or False
 
     @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.payment_state')
     def _compute_invoicing_status(self):
         for order in self:
             invoices = order._get_all_linked_invoices()
-            
-            # Filtrar solo las no canceladas
+
             active_invoices = invoices.filtered(lambda inv: inv.state != 'cancel')
-            
+
             if not active_invoices:
                 order.invoicing_status = 'no'
                 continue
-            
-            # Verificar si hay alguna pagada
+
             paid_invoices = active_invoices.filtered(
                 lambda inv: inv.state == 'posted' and inv.payment_state in ('paid', 'in_payment', 'reversed')
             )
             if paid_invoices:
                 order.invoicing_status = 'paid'
                 continue
-            
-            # Verificar si hay alguna confirmada (posted)
+
             posted_invoices = active_invoices.filtered(lambda inv: inv.state == 'posted')
             if posted_invoices:
                 order.invoicing_status = 'invoiced'
                 continue
-            
-            # Verificar si hay alguna en borrador
+
             draft_invoices = active_invoices.filtered(lambda inv: inv.state == 'draft')
             if draft_invoices:
                 order.invoicing_status = 'draft'
                 continue
-            
-            # Default
+
             order.invoicing_status = 'no'
 
     @api.depends('invoice_ids')
@@ -356,9 +398,6 @@ class ServiceOrder(models.Model):
 
     @api.depends('line_ids.price_unit', 'line_ids.product_uom_qty', 'line_ids.product_id', 'line_ids.weight_kg')
     def _compute_amounts(self):
-        """
-        Calcula Monto, Impuestos, Total, Peso, Cantidad y Conteo de Líneas.
-        """
         for order in self:
             total_untaxed = 0.0
             total_tax = 0.0
@@ -370,13 +409,10 @@ class ServiceOrder(models.Model):
                 if line.product_id:
                     price = line.price_unit
                     qty = line.product_uom_qty
-                    
-                    # 1. Subtotal
+
                     total_untaxed += price * qty
-                    
-                    # 2. Impuestos (Usando el motor fiscal de Odoo si hay producto y taxes)
+
                     if line.product_id.taxes_id:
-                        # Computa impuestos para esta línea
                         tax_res = line.product_id.taxes_id.compute_all(
                             price,
                             order.currency_id,
@@ -384,10 +420,8 @@ class ServiceOrder(models.Model):
                             product=line.product_id,
                             partner=order.partner_id
                         )
-                        # Sumamos el monto de impuestos calculado
                         total_tax += sum(t.get('amount', 0.0) for t in tax_res.get('taxes', []))
 
-                    # 3. Métricas Físicas
                     total_qty += qty
                     total_weight += line.weight_kg
                     count_lines += 1
@@ -395,7 +429,7 @@ class ServiceOrder(models.Model):
             order.amount_untaxed = total_untaxed
             order.amount_tax = total_tax
             order.amount_total = total_untaxed + total_tax
-            
+
             order.total_weight_kg = total_weight
             order.total_product_qty = total_qty
             order.lines_count = count_lines
@@ -453,7 +487,7 @@ class ServiceOrder(models.Model):
             'contact_name': partner.name or partner.display_name or False,
             'contact_phone': self._get_contact_phone_safe(partner),
         }
-    
+
     def _has_blocking_invoices(self):
         self.ensure_one()
         invoices = self._get_all_linked_invoices()
@@ -509,6 +543,15 @@ class ServiceOrder(models.Model):
         if warning:
             return {'warning': warning}
 
+    @api.onchange('vehicle_id')
+    def _onchange_vehicle_id(self):
+        """Rellena automáticamente la placa desde el vehículo seleccionado."""
+        for rec in self:
+            if rec.vehicle_id:
+                rec.numero_placa = rec.vehicle_id.license_plate or False
+            else:
+                rec.numero_placa = False
+
     @api.onchange('transportista_id')
     def _onchange_transportista_id(self):
         for rec in self:
@@ -531,7 +574,6 @@ class ServiceOrder(models.Model):
                     sequence_date=seq_date,
                 ) or _('New')
 
-            # NUEVO: Auto-asignar comercial si viene de venta o poner el actual
             if 'user_id' not in vals:
                 if vals.get('sale_order_id'):
                     sale = self.env['sale.order'].browse(vals['sale_order_id'])
@@ -549,6 +591,12 @@ class ServiceOrder(models.Model):
                 if c:
                     vals.update(self._prepare_contact_legacy_vals(c))
 
+            # Rellenar placa desde vehículo si no viene explícita
+            if vals.get('vehicle_id') and not vals.get('numero_placa'):
+                vehicle = self.env['fleet.vehicle'].browse(vals['vehicle_id'])
+                if vehicle.exists():
+                    vals['numero_placa'] = vehicle.license_plate or False
+
         return super().create(vals_list)
 
     def write(self, vals):
@@ -560,6 +608,12 @@ class ServiceOrder(models.Model):
             else:
                 vals.pop('contact_name', None)
                 vals.pop('contact_phone', None)
+
+        # Rellenar placa desde vehículo si se cambia el vehículo
+        if 'vehicle_id' in vals and vals.get('vehicle_id'):
+            vehicle = self.env['fleet.vehicle'].browse(vals['vehicle_id'])
+            if vehicle.exists() and 'numero_placa' not in vals:
+                vals['numero_placa'] = vehicle.license_plate or False
 
         return super().write(vals)
 
@@ -583,7 +637,6 @@ class ServiceOrder(models.Model):
         for order in self:
             if order.state not in ('cancel', 'confirmed', 'done'):
                 raise UserError(_('Solo se pueden restablecer a borrador órdenes canceladas, confirmadas o completadas.'))
-            # Solo bloquear si hay facturas confirmadas (posted), no borradores
             if order._has_blocking_invoices():
                 raise UserError(_('No se puede restablecer a borrador una orden con facturas confirmadas. Cancele primero las facturas.'))
         self.write({'state': 'draft'})
@@ -606,10 +659,7 @@ class ServiceOrder(models.Model):
             'domain': [('id', 'in', invoices.ids)],
             'context': {'create': False},
         }
-    
-    # -------------------------------------------------------------------------
-    # ACCIÓN PARA FORZAR RECÁLCULO
-    # -------------------------------------------------------------------------
+
     def action_recompute_invoicing_status(self):
         """Fuerza el recálculo del estado de facturación"""
         self._compute_invoicing_status()

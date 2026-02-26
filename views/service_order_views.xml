@@ -11,14 +11,10 @@
     <field name="model">service.order</field>
     <field name="arch" type="xml">
       <search string="Buscar Orden de Servicio">
-        <!-- Campos de búsqueda rápida -->
         <field name="name" string="Folio"/>
         <field name="partner_id" string="Cliente"/>
-        
-        <!-- BÚSQUEDA: Permite escribir el nombre del servicio para encontrar la orden -->
-        <field name="line_ids" string="Contiene Servicio/Residuo" 
+        <field name="line_ids" string="Contiene Servicio/Residuo"
                filter_domain="['|', ('line_ids.name', 'ilike', self), ('line_ids.product_id.name', 'ilike', self)]"/>
-
         <field name="user_id" string="Comercial"/>
         <field name="sale_order_id"/>
         <field name="transportista_id"/>
@@ -29,7 +25,6 @@
 
         <separator/>
 
-        <!-- Filtros Rápidos -->
         <filter string="Mis Órdenes" name="my_orders" domain="[('user_id', '=', uid)]"/>
         <separator/>
         <filter string="Borrador" name="draft" domain="[('state', '=', 'draft')]"/>
@@ -39,29 +34,21 @@
         <separator/>
         <filter string="Pendiente Facturar" name="to_invoice" domain="[('invoicing_status', '=', 'no'), ('state', '=', 'done')]"/>
         <separator/>
-        
-        <!-- Filtro de fecha estándar -->
+
         <filter string="Fecha Orden" name="filter_date_order" date="date_order"/>
-        
-        <!-- Agrupadores (Group By) -->
-          <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
-          <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
-          <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
-          
-          <!-- Geográficos -->
-          <filter string="Ciudad" name="group_city" context="{'group_by': 'partner_city'}"/>
-          <filter string="Estado" name="group_state_id" context="{'group_by': 'partner_state_id'}"/>
-          
-          <!-- Logística -->
-          <filter string="Transportista" name="group_transportista" context="{'group_by': 'transportista_id'}"/>
-          <filter string="Destinatario" name="group_destinatario" context="{'group_by': 'destinatario_id'}"/>
-          <filter string="Chofer" name="group_chofer" context="{'group_by': 'chofer_id'}"/>
-          <filter string="Placa" name="group_placa" context="{'group_by': 'numero_placa'}"/>
-          
-          <!-- Otros -->
-          <filter string="Estado Orden" name="group_state" context="{'group_by': 'state'}"/>
-          <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
-          <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
+
+        <filter string="Comercial" name="group_user" context="{'group_by': 'user_id'}"/>
+        <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
+        <filter string="Generador" name="group_generador" context="{'group_by': 'generador_id'}"/>
+        <filter string="Ciudad" name="group_city" context="{'group_by': 'partner_city'}"/>
+        <filter string="Estado" name="group_state_id" context="{'group_by': 'partner_state_id'}"/>
+        <filter string="Transportista" name="group_transportista" context="{'group_by': 'transportista_id'}"/>
+        <filter string="Destinatario" name="group_destinatario" context="{'group_by': 'destinatario_id'}"/>
+        <filter string="Chofer" name="group_chofer" context="{'group_by': 'chofer_id'}"/>
+        <filter string="Placa" name="group_placa" context="{'group_by': 'numero_placa'}"/>
+        <filter string="Estado Orden" name="group_state" context="{'group_by': 'state'}"/>
+        <filter string="Mes" name="group_date_month" context="{'group_by': 'date_order:month'}"/>
+        <filter string="Frecuencia" name="group_frequency" context="{'group_by': 'service_frequency'}"/>
       </search>
     </field>
   </record>
@@ -139,7 +126,7 @@
         <field name="partner_id" string="Cliente"/>
         <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="show"/>
         <field name="sale_order_id" string="Cotización" readonly="1" optional="hide"/>
-        
+
         <field name="total_weight_kg" string="Peso Total" sum="Total Peso" optional="show"/>
         <field name="total_product_qty" string="Cant. Total" sum="Total Items" optional="hide"/>
         <field name="amount_total" string="Total ($)" sum="Total" optional="show" widget="monetary" decoration-bf="1"/>
@@ -154,7 +141,7 @@
                decoration-warning="invoicing_status == 'draft'"
                decoration-success="invoicing_status == 'invoiced'"
                decoration-primary="invoicing_status == 'paid'"/>
-        
+
         <field name="currency_id" column_invisible="1"/>
       </list>
     </field>
@@ -179,7 +166,7 @@
           <widget name="web_ribbon" title="Confirmada" bg_color="text-bg-warning" invisible="state != 'confirmed'"/>
           <widget name="web_ribbon" title="Completada" bg_color="text-bg-success" invisible="state != 'done'"/>
           <widget name="web_ribbon" title="Cancelada" bg_color="text-bg-danger" invisible="state != 'cancel'"/>
-          
+
           <widget name="web_ribbon" title="Pagado" bg_color="text-bg-primary" invisible="invoicing_status != 'paid'"/>
           <widget name="web_ribbon" title="Facturado" bg_color="text-bg-success" invisible="invoicing_status not in ['invoiced'] or invoicing_status == 'paid'"/>
           <widget name="web_ribbon" title="Fact. Borrador" bg_color="text-bg-warning" invisible="invoicing_status != 'draft'"/>
@@ -224,13 +211,16 @@
             <page string="Logística" name="page_logistics">
               <group>
                 <group string="Unidad y Operador">
-                  <field name="camion" string="Camión"/>
-                  <field name="numero_placa" string="Placas"/>
-                  <field name="chofer_id" string="Chofer" options="{'no_create': True}"/>
+                  <!-- vehicle_id reemplaza a camion (Char) -->
+                  <field name="vehicle_id" options="{'no_create': True}" placeholder="Seleccionar vehículo de flota..."/>
+                  <!-- Placa se rellena automáticamente, readonly para evitar edición manual accidental -->
+                  <field name="numero_placa" readonly="1" placeholder="Se rellena desde el vehículo"/>
+                  <field name="chofer_id" options="{'no_create': True}" domain="[('is_driver', '=', True)]" placeholder="Seleccionar chofer..."/>
                 </group>
                 <group string="Remolques y Básculas">
-                  <field name="remolque1" string="Remolque 1"/>
-                  <field name="remolque2" string="Remolque 2"/>
+                  <!-- Remolques ahora apuntan a fleet.vehicle filtrados por etiqueta -->
+                  <field name="remolque1_id" options="{'no_create': True}" domain="[('tag_ids.name', 'ilike', 'remolque')]" placeholder="Seleccionar remolque 1..."/>
+                  <field name="remolque2_id" options="{'no_create': True}" domain="[('tag_ids.name', 'ilike', 'remolque')]" placeholder="Seleccionar remolque 2..."/>
                   <field name="bascula_1" string="Báscula 1"/>
                   <field name="bascula_2" string="Báscula 2"/>
                   <field name="numero_bascula" invisible="1"/>
@@ -275,19 +265,15 @@
             </page>
           </notebook>
         </sheet>
-        
-        <!-- ============================================== -->
-        <!-- CHATTER: Agregado para Odoo 19+ -->
-        <!-- ============================================== -->
+
         <chatter/>
-        
+
       </form>
     </field>
   </record>
 
   <!-- =========================================================
-       2. VISTAS DEL REPORTES DETALLADOS (LÍNEAS)
-       RESTITUIDAS: Estas vistas permiten ver "Línea por Línea"
+       2. VISTAS DE REPORTES DETALLADOS (LÍNEAS)
        ========================================================= -->
 
   <!-- 1. Vista Pivot para Líneas -->
@@ -296,20 +282,12 @@
     <field name="model">service.order.line</field>
     <field name="arch" type="xml">
       <pivot string="Análisis Detallado de Residuos" sample="1">
-        <!-- Filas: El Residuo (Producto) -->
         <field name="product_id" type="row"/>
-        <!-- AQUÍ SE VE EL NOMBRE DE LA LÍNEA (No concatenado) -->
         <field name="name" type="row"/>
-        
-        <!-- Columnas: Tiempo -->
         <field name="date_order" interval="month" type="col"/>
-
-        <!-- Medidas -->
         <field name="weight_kg" type="measure" string="Peso (Kg)"/>
         <field name="product_uom_qty" type="measure" string="Cantidad"/>
         <field name="price_subtotal" type="measure" string="Subtotal ($)"/>
-
-        <!-- Campos adicionales disponibles -->
         <field name="partner_id"/>
         <field name="user_id"/>
         <field name="residue_type"/>
@@ -347,25 +325,22 @@
         <field name="service_order_id" string="Orden de Servicio"/>
         <field name="residue_type"/>
         <field name="plan_manejo"/>
-        
+
         <separator/>
         <filter string="Confirmadas/Completadas" name="confirmed_done" domain="[('state', 'in', ['confirmed', 'done'])]"/>
         <filter string="Pendientes" name="draft" domain="[('state', '=', 'draft')]"/>
         <separator/>
         <filter string="Este Mes" name="this_month" date="date_order"/>
 
-            <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
-            <filter string="Residuo (Producto)" name="group_product" context="{'group_by':'product_id'}"/>
-            
-            <!-- AQUÍ SÍ FUNCIONA LA AGRUPACIÓN POR NOMBRE DE LÍNEA -->
-            <filter string="Nombre del Servicio" name="group_name" context="{'group_by':'name'}"/>
-            
-            <filter string="Descripción (Comp)" name="group_description" context="{'group_by':'description'}"/>
-            <filter string="Tipo Residuo" name="group_type" context="{'group_by':'residue_type'}"/>
-            <filter string="Plan de Manejo" name="group_plan" context="{'group_by':'plan_manejo'}"/>
-            <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>
-            <filter string="Fecha" name="group_date" context="{'group_by':'date_order:month'}"/>
-            <filter string="Comercial" name="group_user" context="{'group_by':'user_id'}"/>
+        <filter string="Cliente" name="group_partner" context="{'group_by':'partner_id'}"/>
+        <filter string="Residuo (Producto)" name="group_product" context="{'group_by':'product_id'}"/>
+        <filter string="Nombre del Servicio" name="group_name" context="{'group_by':'name'}"/>
+        <filter string="Descripción (Comp)" name="group_description" context="{'group_by':'description'}"/>
+        <filter string="Tipo Residuo" name="group_type" context="{'group_by':'residue_type'}"/>
+        <filter string="Plan de Manejo" name="group_plan" context="{'group_by':'plan_manejo'}"/>
+        <filter string="Embalaje" name="group_pack" context="{'group_by':'packaging_id'}"/>
+        <filter string="Fecha" name="group_date" context="{'group_by':'date_order:month'}"/>
+        <filter string="Comercial" name="group_user" context="{'group_by':'user_id'}"/>
       </search>
     </field>
   </record>
@@ -379,8 +354,7 @@
     <field name="context">{'search_default_confirmed_done': 1}</field>
   </record>
 
-  <!-- 5. Elementos de Menú para el Reporte -->
-  <!-- Esto permite acceder al reporte "Línea por Línea" desde el menú -->
+  <!-- 5. Menú de Informes -->
   <menuitem id="menu_service_order_analysis_root"
             name="Informes"
             parent="menu_service_order_root"
