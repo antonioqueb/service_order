@@ -4,7 +4,7 @@
     'category': 'Services',
     'summary': 'Gestión de Órdenes de Servicio independiente',
     'author': 'Alphaqueb Consulting',
-    'depends': ['sale', 'account'],
+    'depends': ['sale', 'account', 'fleet'],
     'data': [
         'security/security.xml',                            # 0. Security groups first
         'security/ir.model.access.csv',    
