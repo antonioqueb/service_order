@@ -221,8 +221,18 @@
                   <!-- Remolques ahora apuntan a fleet.vehicle filtrados por etiqueta -->
                   <field name="remolque1_id" options="{'no_create': True}" domain="[('tag_ids.name', 'ilike', 'remolque')]" placeholder="Seleccionar remolque 1..."/>
                   <field name="remolque2_id" options="{'no_create': True}" domain="[('tag_ids.name', 'ilike', 'remolque')]" placeholder="Seleccionar remolque 2..."/>
-                  <field name="bascula_1" string="Báscula 1"/>
-                  <field name="bascula_2" string="Báscula 2"/>
+                  <label for="bascula_1_numero" string="Báscula 1"/>
+                  <div class="o_row">
+                    <field name="bascula_1_numero" placeholder="Nº báscula" class="oe_inline"/>
+                    <field name="bascula_1_peso" placeholder="Peso (kg)" class="oe_inline"/>
+                    <span>kg</span>
+                  </div>
+                  <label for="bascula_2_numero" string="Báscula 2"/>
+                  <div class="o_row">
+                    <field name="bascula_2_numero" placeholder="Nº báscula" class="oe_inline"/>
+                    <field name="bascula_2_peso" placeholder="Peso (kg)" class="oe_inline"/>
+                    <span>kg</span>
+                  </div>
                   <field name="numero_bascula" invisible="1"/>
                   <div colspan="2" class="mt-4 border-top pt-2">
                      <label for="total_weight_kg" class="fw-bold"/> <field name="total_weight_kg" class="oe_inline fw-bold"/> kg<br/>

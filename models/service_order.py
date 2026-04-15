@@ -248,8 +248,10 @@ class ServiceOrder(models.Model):
         readonly=True,
     )
 
-    bascula_1 = fields.Char(string='Báscula 1', tracking=True)
-    bascula_2 = fields.Char(string='Báscula 2', tracking=True)
+    bascula_1_numero = fields.Char(string='Número Báscula 1', tracking=True)
+    bascula_1_peso = fields.Float(string='Peso Báscula 1 (kg)', tracking=True)
+    bascula_2_numero = fields.Char(string='Número Báscula 2', tracking=True)
+    bascula_2_peso = fields.Float(string='Peso Báscula 2 (kg)', tracking=True)
     numero_bascula = fields.Char(string='Número de Báscula (legacy)', tracking=True)
 
     destinatario_id = fields.Many2one('res.partner', string='Destinatario Final', tracking=True)

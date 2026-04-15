@@ -134,13 +134,17 @@
                             <tr>
                                 <td class="bg-header">Báscula 1</td>
                                 <td>
-                                    <t t-if="doc.bascula_1"><span t-field="doc.bascula_1"/></t>
+                                    <t t-if="doc.bascula_1_numero">
+                                        Nº <span t-field="doc.bascula_1_numero"/> — <span t-field="doc.bascula_1_peso"/> kg
+                                    </t>
                                     <t t-elif="doc.numero_bascula"><span t-field="doc.numero_bascula"/></t>
                                     <t t-else=""><span style="color:#ccc;">N/A</span></t>
                                 </td>
                                 <td class="bg-header">Báscula 2</td>
                                 <td>
-                                    <t t-if="doc.bascula_2"><span t-field="doc.bascula_2"/></t>
+                                    <t t-if="doc.bascula_2_numero">
+                                        Nº <span t-field="doc.bascula_2_numero"/> — <span t-field="doc.bascula_2_peso"/> kg
+                                    </t>
                                     <t t-else=""><span style="color:#ccc;">N/A</span></t>
                                 </td>
                             </tr>
