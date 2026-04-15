@@ -206,10 +206,9 @@ class ServiceOrder(models.Model):
     )
 
     chofer_id = fields.Many2one(
-        'res.partner',
+    'res.partner',
         string='Chofer',
         tracking=True,
-        domain="[('is_driver', '=', True)]",
     )
 
     transportista_responsable_id = fields.Many2one(

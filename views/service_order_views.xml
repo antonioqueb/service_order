@@ -215,7 +215,7 @@
                   <field name="vehicle_id" options="{'no_create': True}" placeholder="Seleccionar vehículo de flota..."/>
                   <!-- Placa se rellena automáticamente, readonly para evitar edición manual accidental -->
                   <field name="numero_placa" readonly="1" placeholder="Se rellena desde el vehículo"/>
-                  <field name="chofer_id" options="{'no_create': True}" domain="[('is_driver', '=', True)]" placeholder="Seleccionar chofer..."/>
+                  <field name="chofer_id" options="{'no_create': True}" placeholder="Seleccionar chofer..."/>
                 </group>
                 <group string="Remolques y Básculas">
                   <!-- Remolques ahora apuntan a fleet.vehicle filtrados por etiqueta -->
