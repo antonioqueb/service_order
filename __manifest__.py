@@ -6,13 +6,14 @@
     'author': 'Alphaqueb Consulting',
     'depends': ['sale', 'account', 'fleet'],
     'data': [
-        'security/security.xml',                            # 0. Security groups first
-        'security/ir.model.access.csv',    
-        'data/service_order_sequence.xml',                 # 1. Access rights
-        'views/service_order_views.xml',                    # 2. Vistas base (includes sequence)
-        'reports/service_order_report.xml',                 # 3. Definición del reporte 
-        'views/service_order_print_button.xml',             # 4. Botón que referencia el reporte
-        'views/sale_order_inherit.xml',                     # 5. Resto de vistas
+        'security/security.xml',
+        'security/ir.model.access.csv',
+        'data/service_order_sequence.xml',
+        'views/service_order_views.xml',
+        'views/service_order_manifest_description_view.xml',
+        'reports/service_order_report.xml',
+        'views/service_order_print_button.xml',
+        'views/sale_order_inherit.xml',
         'views/service_order_invoice_button.xml',
         'views/product_template_view.xml',
         'views/service_order_invoice_view_button.xml',

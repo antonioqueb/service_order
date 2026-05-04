@@ -2,60 +2,69 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 
+
 class ServiceOrderLine(models.Model):
     _name = 'service.order.line'
     _description = 'Línea de Orden de Servicio'
-    
+
     service_order_id = fields.Many2one(
-        'service.order', 'Orden de Servicio',
-        required=True, ondelete='cascade'
+        'service.order',
+        'Orden de Servicio',
+        required=True,
+        ondelete='cascade'
     )
+
     product_id = fields.Many2one('product.product', 'Residuo')
-    
+
     # =========================================================
-    # CAMPOS DIMENSIONALES PARA REPORTE (Traídos del Padre)
+    # CAMPOS DIMENSIONALES PARA REPORTE
     # =========================================================
     partner_id = fields.Many2one(
-        related='service_order_id.partner_id', 
-        store=True, 
+        related='service_order_id.partner_id',
+        store=True,
         string='Cliente',
         readonly=True
     )
+
     user_id = fields.Many2one(
-        related='service_order_id.user_id', 
-        store=True, 
+        related='service_order_id.user_id',
+        store=True,
         string='Comercial',
         readonly=True
     )
+
     date_order = fields.Datetime(
-        related='service_order_id.date_order', 
-        store=True, 
+        related='service_order_id.date_order',
+        store=True,
         string='Fecha',
         readonly=True
     )
+
     state = fields.Selection(
         related='service_order_id.state',
         store=True,
         string='Estado Orden',
         readonly=True
     )
-    
+
     partner_city = fields.Char(
         related='service_order_id.partner_id.city',
         store=True,
         string="Ciudad Cliente"
     )
+
     transportista_id = fields.Many2one(
         related='service_order_id.transportista_id',
         store=True,
         string="Transportista"
     )
+
     generador_id = fields.Many2one(
         related='service_order_id.generador_id',
         store=True,
         string="Generador"
     )
-    
+
     price_subtotal = fields.Float(
         string='Subtotal',
         compute='_compute_price_subtotal',
@@ -75,19 +84,29 @@ class ServiceOrderLine(models.Model):
 
     description = fields.Char(
         string='Residuo / Equivalente',
-        compute='_compute_description', 
+        compute='_compute_description',
         store=True
     )
-    
+
+    manifest_description = fields.Char(
+        string='Descripción manifiesto',
+        copy=True,
+        help=(
+            "Descripción que se enviará al manifiesto ambiental. "
+            "No sustituye el producto ni la descripción interna de la orden de servicio. "
+            "Si queda vacío, el manifiesto usará la descripción/nombre del servicio."
+        ),
+    )
+
     product_uom_qty = fields.Float('Cantidad')
     product_uom = fields.Many2one('uom.uom', 'Unidad de Medida')
-    
+
     price_unit = fields.Float(
         string='Precio Unitario',
         digits='Product Price',
         default=0.0
     )
-    
+
     currency_id = fields.Many2one(
         'res.currency',
         string='Moneda',
@@ -107,14 +126,15 @@ class ServiceOrderLine(models.Model):
         string='Peso Total (kg)',
         help='Peso total del residuo en kilogramos desde el lead/cotización'
     )
-    
+
     capacity = fields.Char(
         string='Capacidad',
         help='Capacidad del contenedor (ej: 100 L, 200 Kg, 50 CM³)'
     )
-    
+
     packaging_id = fields.Many2one(
-        'uom.uom', 'Embalaje de Producto',
+        'uom.uom',
+        'Embalaje de Producto',
         help='Tipo de embalaje asociado al producto (gestionado como UoM en Odoo 19)'
     )
 
@@ -122,6 +142,7 @@ class ServiceOrderLine(models.Model):
         [('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
         'Tipo de Residuos'
     )
+
     plan_manejo = fields.Selection(
         selection=[
             ('reciclaje', 'Reciclaje'),
@@ -142,20 +163,19 @@ class ServiceOrderLine(models.Model):
     def _compute_description(self):
         for rec in self:
             rec.description = rec.product_id.display_name if rec.product_id else (rec.name or '')
-    
+
     @api.onchange('product_id')
     def _onchange_product_id(self):
         for rec in self:
             if rec.product_id:
                 if not rec.product_uom_qty:
                     rec.product_uom_qty = 1.0
+
                 rec.product_uom = rec.product_id.uom_id
-                
+
                 if not rec.price_unit:
                     rec.price_unit = rec.product_id.lst_price
 
-                # packaging_id es uom.uom genérico, no tiene relación con product_id
-                # Se deja vacío para que el usuario lo seleccione manualmente si aplica
                 if not rec.packaging_id:
                     rec.packaging_id = False
             else:
@@ -163,7 +183,7 @@ class ServiceOrderLine(models.Model):
                 rec.product_uom = False
                 rec.packaging_id = False
                 rec.price_unit = 0.0
-    
+
     @api.constrains('product_id', 'product_uom_qty')
     def _check_qty_for_products(self):
         for rec in self:

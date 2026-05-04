@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <record id="view_service_order_form_manifest_description" model="ir.ui.view">
+    <field name="name">service.order.form.manifest.description</field>
+    <field name="model">service.order</field>
+    <field name="inherit_id" ref="service_order.view_service_order_form"/>
+    <field name="arch" type="xml">
+
+      <xpath expr="//field[@name='line_ids']/list/field[@name='name']" position="after">
+        <field name="manifest_description"
+               string="Desc. manifiesto"
+               optional="hide"
+               placeholder="Descripción para manifiesto..."/>
+      </xpath>
+
+    </field>
+  </record>
+</odoo>
