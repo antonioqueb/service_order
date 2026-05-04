@@ -205,16 +205,29 @@ class ServiceOrder(models.Model):
         help='Se rellena automáticamente desde el vehículo seleccionado.',
     )
 
-    chofer_id = fields.Many2one(
-    'res.partner',
-        string='Chofer',
-        tracking=True,
-    )
-
+    # =========================================================
+    # CHOFER / RESPONSABLE TRANSPORTISTA
+    # ---------------------------------------------------------
+    # Regla de negocio: Chofer y Responsable Transportista son la
+    # MISMA persona. El campo "fuente" es transportista_responsable_id
+    # (editable). chofer_id es un computed con inverse, de modo que
+    # editar cualquiera de los dos sincroniza el otro siempre.
+    # =========================================================
     transportista_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Transportista',
         tracking=True,
+    )
+
+    chofer_id = fields.Many2one(
+        'res.partner',
+        string='Chofer',
+        compute='_compute_chofer_id',
+        inverse='_inverse_chofer_id',
+        store=True,
+        readonly=False,
+        tracking=True,
+        help='Chofer asignado. Siempre coincide con el Responsable Transportista.',
     )
 
     # Remolques como vehículos de flota filtrados por etiqueta
@@ -352,6 +365,17 @@ class ServiceOrder(models.Model):
         for rec in self:
             rec.remolque1 = rec.remolque1_id.license_plate or rec.remolque1_id.name or False
             rec.remolque2 = rec.remolque2_id.license_plate or rec.remolque2_id.name or False
+
+    @api.depends('transportista_responsable_id')
+    def _compute_chofer_id(self):
+        """Chofer siempre sigue al Responsable Transportista."""
+        for rec in self:
+            rec.chofer_id = rec.transportista_responsable_id
+
+    def _inverse_chofer_id(self):
+        """Si el usuario edita el chofer, sincronizamos el responsable."""
+        for rec in self:
+            rec.transportista_responsable_id = rec.chofer_id
 
     @api.depends('invoice_ids', 'invoice_ids.state', 'invoice_ids.payment_state')
     def _compute_invoicing_status(self):
@@ -597,6 +621,12 @@ class ServiceOrder(models.Model):
                 vehicle = self.env['fleet.vehicle'].browse(vals['vehicle_id'])
                 if vehicle.exists():
                     vals['numero_placa'] = vehicle.license_plate or False
+
+            # Sincronización chofer <-> responsable transportista en alta
+            if vals.get('chofer_id') and not vals.get('transportista_responsable_id'):
+                vals['transportista_responsable_id'] = vals['chofer_id']
+            elif vals.get('transportista_responsable_id') and not vals.get('chofer_id'):
+                vals['chofer_id'] = vals['transportista_responsable_id']
 
         return super().create(vals_list)
 
