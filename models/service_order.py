@@ -3,6 +3,78 @@ from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
 
+SERVICE_ORDER_CHILD_ONLY_DISPLAY_CONTEXT = {
+    'service_order_child_only_display': True,
+}
+
+
+class ResPartner(models.Model):
+    _inherit = 'res.partner'
+
+    @api.depends(
+        'name',
+        'complete_name',
+        'parent_id',
+        'parent_id.name',
+        'email',
+        'vat',
+        'state_id',
+        'country_id',
+        'commercial_company_name',
+    )
+    @api.depends_context(
+        'lang',
+        'show_address',
+        'show_address_only',
+        'show_email',
+        'show_vat',
+        'service_order_child_only_display',
+    )
+    def _compute_display_name(self):
+        """
+        Ajuste contextual para Orden de Servicio.
+
+        Problema:
+        Odoo muestra contactos hijos como:
+        "CLIENTE PADRE, CONTACTO HIJO"
+
+        Requerimiento:
+        En campos de Orden de Servicio donde el contacto ya está filtrado
+        por un padre seleccionado, mostrar solo el nombre del contacto hijo.
+
+        Este cambio NO afecta globalmente contactos, ventas, facturación, etc.
+        Solo se activa cuando el campo Many2one envía el contexto:
+        service_order_child_only_display=True
+        """
+        super()._compute_display_name()
+
+        if not self.env.context.get('service_order_child_only_display'):
+            return
+
+        for partner in self:
+            if partner.parent_id and partner.name:
+                partner.display_name = partner.name
+
+    def name_get(self):
+        """
+        Compatibilidad con flujos que todavía usen name_get para Many2one.
+
+        En contexto normal conserva el comportamiento estándar.
+        En contexto de Orden de Servicio muestra solo el nombre del hijo.
+        """
+        if not self.env.context.get('service_order_child_only_display'):
+            return super().name_get()
+
+        result = []
+        for partner in self:
+            if partner.parent_id and partner.name:
+                name = partner.name
+            else:
+                name = partner.name or partner.complete_name or ''
+            result.append((partner.id, name))
+        return result
+
+
 class ServiceOrder(models.Model):
     _name = 'service.order'
     _description = 'Orden de Servicio'
@@ -74,9 +146,6 @@ class ServiceOrder(models.Model):
         tracking=True,
     )
 
-    # =========================================================
-    # INVOICING_STATUS
-    # =========================================================
     invoicing_status = fields.Selection(
         [
             ('no', 'No Facturado'),
@@ -131,6 +200,7 @@ class ServiceOrder(models.Model):
         string='Ubicación de Recolección',
         ondelete='set null',
         tracking=True,
+        context=SERVICE_ORDER_CHILD_ONLY_DISPLAY_CONTEXT,
         help='Dirección/contacto seleccionado para la recolección.'
     )
 
@@ -148,12 +218,14 @@ class ServiceOrder(models.Model):
         string='Generador',
         ondelete='set null',
         tracking=True,
+        context=SERVICE_ORDER_CHILD_ONLY_DISPLAY_CONTEXT,
     )
 
     generador_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Generador',
         tracking=True,
+        context=SERVICE_ORDER_CHILD_ONLY_DISPLAY_CONTEXT,
     )
 
     # =========================================================
@@ -164,6 +236,7 @@ class ServiceOrder(models.Model):
         string='Nombre de Contacto',
         ondelete='set null',
         tracking=True,
+        context=SERVICE_ORDER_CHILD_ONLY_DISPLAY_CONTEXT,
     )
 
     contact_name = fields.Char(
@@ -207,13 +280,11 @@ class ServiceOrder(models.Model):
         help='Se rellena automáticamente desde el vehículo seleccionado.',
     )
 
-    # =========================================================
-    # CHOFER / RESPONSABLE TRANSPORTISTA
-    # =========================================================
     transportista_responsable_id = fields.Many2one(
         'res.partner',
         string='Responsable Transportista',
         tracking=True,
+        context=SERVICE_ORDER_CHILD_ONLY_DISPLAY_CONTEXT,
     )
 
     chofer_id = fields.Many2one(
@@ -224,6 +295,7 @@ class ServiceOrder(models.Model):
         store=True,
         readonly=False,
         tracking=True,
+        context=SERVICE_ORDER_CHILD_ONLY_DISPLAY_CONTEXT,
         help='Chofer asignado. Siempre coincide con el Responsable Transportista.',
     )
 
@@ -537,10 +609,6 @@ class ServiceOrder(models.Model):
     def _normalize_transportista_vals(self, vals):
         """
         Fuerza el transportista permitido en altas/escrituras.
-
-        Esto evita que una orden creada desde cotización, importación,
-        acción de servidor o edición manual conserve otro partner fiscal
-        como transportista.
         """
         transportista = self._get_sa_transporte_partner()
         if not transportista:
