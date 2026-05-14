@@ -7,6 +7,9 @@ SERVICE_ORDER_CHILD_ONLY_DISPLAY_CONTEXT = {
     'service_order_child_only_display': True,
 }
 
+TRANSPORTISTA_TAG_NAME = 'Transportista'
+DEFAULT_TRANSPORTISTA_NAME = 'SA Transporte'
+
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
@@ -262,9 +265,9 @@ class ServiceOrder(models.Model):
         'res.partner',
         string='Transportista',
         default=lambda self: self._get_default_transportista_id(),
-        domain="[('name', '=', 'SA Transporte')]",
+        domain="[('category_id.name', 'ilike', 'Transportista')]",
         tracking=True,
-        help='Transportista fijo para órdenes de servicio. Solo debe seleccionarse SA Transporte.',
+        help='Transportista de la orden de servicio. Solo se muestran contactos con la etiqueta Transportista.',
     )
 
     vehicle_id = fields.Many2one(
@@ -547,6 +550,22 @@ class ServiceOrder(models.Model):
     def _get_partner_category_by_name(self, name):
         return self.env['res.partner.category'].sudo().search([('name', 'ilike', name)], limit=1)
 
+    def _partner_has_category_name(self, partner, tag_name):
+        if not partner or not tag_name:
+            return False
+
+        tag_name_normalized = tag_name.strip().lower()
+
+        for category in partner.category_id:
+            category_name = (category.name or '').strip().lower()
+            if tag_name_normalized in category_name:
+                return True
+
+        return False
+
+    def _is_valid_transportista_partner(self, partner):
+        return self._partner_has_category_name(partner, TRANSPORTISTA_TAG_NAME)
+
     def _find_related_contact_with_tag(self, partner, tag_name):
         if not partner:
             return False
@@ -591,31 +610,40 @@ class ServiceOrder(models.Model):
 
         return address or partner.display_name or partner.name or False
 
-    def _get_sa_transporte_partner(self):
+    def _get_default_transportista_id(self):
         """
-        Localiza el contacto permitido para Transportista.
+        Define SA Transporte como valor por defecto únicamente si existe
+        y tiene la etiqueta Transportista.
 
-        Regla de negocio:
-        En Orden de Servicio, el campo Transportista debe limitarse a SA Transporte.
+        Ya no fuerza SA Transporte en create/write/onchange.
+        El selector queda abierto a cualquier contacto etiquetado como Transportista.
         """
-        return self.env['res.partner'].sudo().search([
-            ('name', '=', 'SA Transporte')
+        transportista = self.env['res.partner'].sudo().search([
+            ('name', '=', DEFAULT_TRANSPORTISTA_NAME),
+            ('category_id.name', 'ilike', TRANSPORTISTA_TAG_NAME),
         ], limit=1)
 
-    def _get_default_transportista_id(self):
-        transportista = self._get_sa_transporte_partner()
         return transportista.id if transportista else False
 
     def _normalize_transportista_vals(self, vals):
         """
-        Fuerza el transportista permitido en altas/escrituras.
+        Valida que el transportista elegido pertenezca al catálogo permitido.
+
+        Regla de negocio:
+        El campo Transportista solo acepta contactos con la etiqueta Transportista.
         """
-        transportista = self._get_sa_transporte_partner()
-        if not transportista:
+        if 'transportista_id' not in vals:
             return vals
 
-        if vals.get('transportista_id') != transportista.id:
-            vals['transportista_id'] = transportista.id
+        if not vals.get('transportista_id'):
+            return vals
+
+        transportista = self.env['res.partner'].sudo().browse(vals['transportista_id'])
+
+        if transportista.exists() and not self._is_valid_transportista_partner(transportista):
+            raise UserError(_(
+                'El contacto seleccionado como Transportista debe tener la etiqueta "%s".'
+            ) % TRANSPORTISTA_TAG_NAME)
 
         return vals
 
@@ -697,14 +725,26 @@ class ServiceOrder(models.Model):
 
     @api.onchange('transportista_id')
     def _onchange_transportista_id(self):
+        warning = False
+
         for rec in self:
-            sa_transporte = rec._get_sa_transporte_partner()
+            if rec.transportista_id and not rec._is_valid_transportista_partner(rec.transportista_id):
+                contact_name = rec.transportista_id.display_name
 
-            if sa_transporte and rec.transportista_id and rec.transportista_id.id != sa_transporte.id:
-                rec.transportista_id = sa_transporte.id
+                rec.transportista_id = False
+                rec.transportista_responsable_id = False
 
-            if sa_transporte and not rec.transportista_id:
-                rec.transportista_id = sa_transporte.id
+                warning = {
+                    'title': _('Transportista no permitido'),
+                    'message': _(
+                        'El contacto "%(contact)s" no tiene la etiqueta "%(tag)s".\n\n'
+                        'Solo pueden seleccionarse contactos etiquetados como Transportista.'
+                    ) % {
+                        'contact': contact_name,
+                        'tag': TRANSPORTISTA_TAG_NAME,
+                    }
+                }
+                continue
 
             if rec.transportista_responsable_id and rec.transportista_id:
                 ok = (
@@ -713,6 +753,12 @@ class ServiceOrder(models.Model):
                 )
                 if not ok:
                     rec.transportista_responsable_id = False
+
+            if not rec.transportista_id:
+                rec.transportista_responsable_id = False
+
+        if warning:
+            return {'warning': warning}
 
     # -------------------------------------------------------------------------
     # CRUD
