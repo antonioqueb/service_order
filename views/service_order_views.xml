@@ -114,35 +114,135 @@
     </field>
   </record>
 
-  <!-- VISTA LISTA (ORDEN) -->
+  
+    <!-- VISTA LISTA (ORDEN) -->
   <record id="view_service_order_list" model="ir.ui.view">
     <field name="name">service.order.list</field>
     <field name="model">service.order</field>
     <field name="type">list</field>
     <field name="arch" type="xml">
       <list string="Órdenes de Servicio" default_order="date_order desc">
+
+        <!-- =====================================================
+             IDENTIFICACIÓN PRINCIPAL
+             ===================================================== -->
         <field name="name" string="Folio" class="fw-bold"/>
         <field name="date_order" string="Fecha"/>
         <field name="partner_id" string="Cliente"/>
         <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="show"/>
-        <field name="sale_order_id" string="Cotización" readonly="1" optional="hide"/>
+        <field name="sale_order_id" string="Cotización" readonly="1" optional="show"/>
 
-        <field name="total_weight_kg" string="Peso Total" sum="Total Peso" optional="show"/>
-        <field name="total_product_qty" string="Cant. Total" sum="Total Items" optional="hide"/>
-        <field name="amount_total" string="Total ($)" sum="Total" optional="show" widget="monetary" decoration-bf="1"/>
-
-        <field name="state" widget="badge"
+        <!-- =====================================================
+             ESTADOS
+             ===================================================== -->
+        <field name="state"
+               string="Estado"
+               widget="badge"
+               optional="show"
                decoration-info="state == 'draft'"
                decoration-warning="state == 'confirmed'"
                decoration-success="state == 'done'"
                decoration-danger="state == 'cancel'"/>
-        <field name="invoicing_status" string="Facturación" widget="badge"
+
+        <field name="invoicing_status"
+               string="Facturación"
+               widget="badge"
+               optional="show"
                decoration-info="invoicing_status == 'no'"
                decoration-warning="invoicing_status == 'draft'"
                decoration-success="invoicing_status == 'invoiced'"
                decoration-primary="invoicing_status == 'paid'"/>
 
-        <field name="currency_id" column_invisible="1"/>
+        <!-- =====================================================
+             MÉTRICAS OPERATIVAS Y FINANCIERAS
+             ===================================================== -->
+        <field name="lines_count" string="Líneas" sum="Total Líneas" optional="show"/>
+        <field name="total_weight_kg" string="Peso Total kg" sum="Total Peso" optional="show"/>
+        <field name="total_product_qty" string="Cantidad Total" sum="Total Cantidad" optional="show"/>
+
+        <field name="amount_untaxed"
+               string="Subtotal"
+               widget="monetary"
+               options="{'currency_field': 'currency_id'}"
+               sum="Subtotal"
+               optional="hide"/>
+
+        <field name="amount_tax"
+               string="Impuestos"
+               widget="monetary"
+               options="{'currency_field': 'currency_id'}"
+               sum="Impuestos"
+               optional="hide"/>
+
+        <field name="amount_total"
+               string="Total"
+               widget="monetary"
+               options="{'currency_field': 'currency_id'}"
+               sum="Total"
+               optional="show"
+               decoration-bf="1"/>
+
+        <field name="currency_id" string="Moneda" column_invisible="1"/>
+
+        <!-- =====================================================
+             CLIENTE / UBICACIÓN / CONTACTO
+             ===================================================== -->
+        <field name="partner_city" string="Ciudad Cliente" optional="hide"/>
+        <field name="partner_state_id" string="Estado Cliente" optional="hide"/>
+
+        <field name="contact_partner_id" string="Contacto" optional="hide"/>
+        <field name="contact_name" string="Contacto Legacy" optional="hide"/>
+        <field name="contact_phone" string="Teléfono Contacto" optional="hide"/>
+
+        <field name="pickup_location_id" string="Ubicación Recolección" optional="hide"/>
+        <field name="pickup_location" string="Ubicación Recolección Texto" optional="hide"/>
+
+        <!-- =====================================================
+             GENERADOR / DESTINATARIO
+             ===================================================== -->
+        <field name="generador_id" string="Generador" optional="show"/>
+        <field name="generador_responsable_id" string="Responsable Generador" optional="hide"/>
+        <field name="destinatario_id" string="Destinatario Final" optional="hide"/>
+
+        <!-- =====================================================
+             SERVICIO
+             ===================================================== -->
+        <field name="service_frequency" string="Frecuencia" optional="hide"/>
+        <field name="residue_new" string="Residuo Nuevo" optional="hide"/>
+        <field name="requiere_visita" string="Requiere Visita" optional="hide"/>
+
+        <!-- =====================================================
+             TRANSPORTE / LOGÍSTICA
+             ===================================================== -->
+        <field name="transportista_id" string="Transportista" optional="show"/>
+        <field name="transportista_responsable_id" string="Resp. Transportista" optional="hide"/>
+        <field name="chofer_id" string="Chofer" optional="show"/>
+
+        <field name="vehicle_id" string="Vehículo" optional="show"/>
+        <field name="numero_placa" string="Placa" optional="show"/>
+
+        <field name="remolque1_id" string="Remolque 1" optional="hide"/>
+        <field name="remolque2_id" string="Remolque 2" optional="hide"/>
+        <field name="remolque1" string="Remolque 1 Legacy" optional="hide"/>
+        <field name="remolque2" string="Remolque 2 Legacy" optional="hide"/>
+
+        <field name="bascula_1_numero" string="Báscula 1" optional="hide"/>
+        <field name="bascula_1_peso" string="Peso Báscula 1 kg" sum="Total Báscula 1" optional="hide"/>
+        <field name="bascula_2_numero" string="Báscula 2" optional="hide"/>
+        <field name="bascula_2_peso" string="Peso Báscula 2 kg" sum="Total Báscula 2" optional="hide"/>
+        <field name="numero_bascula" string="Báscula Legacy" optional="hide"/>
+
+        <!-- =====================================================
+             FACTURACIÓN
+             ===================================================== -->
+        <field name="invoice_count" string="Facturas" optional="hide"/>
+        <field name="invoice_ids" string="Facturas Vinculadas" widget="many2many_tags" optional="hide"/>
+
+        <!-- =====================================================
+             OBSERVACIONES
+             ===================================================== -->
+        <field name="observaciones" string="Observaciones" optional="hide"/>
+
       </list>
     </field>
   </record>
