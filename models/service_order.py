@@ -271,7 +271,6 @@ class ServiceOrder(models.Model):
     # =========================================================
     # FACTURACIÓN
     # =========================================================
-
     invoice_ids = fields.Many2many(
         'account.move',
         'account_move_service_order_rel',
@@ -310,6 +309,7 @@ class ServiceOrder(models.Model):
         store=True,
         currency_field='currency_id',
     )
+
     amount_total = fields.Monetary(
         string='Total',
         compute='_compute_amounts',
@@ -513,6 +513,21 @@ class ServiceOrder(models.Model):
             'contact_phone': self._get_contact_phone_safe(partner),
         }
 
+    def _prepare_pickup_location_text(self, partner):
+        """
+        Devuelve una dirección legible para el campo legacy pickup_location.
+
+        La fuente real debe ser pickup_location_id, pero mantenemos este texto
+        por compatibilidad con reportes o datos anteriores.
+        """
+        if not partner:
+            return False
+
+        address = partner._display_address() or ''
+        address = address.replace('\n', ', ').strip()
+
+        return address or partner.display_name or partner.name or False
+
     def _has_blocking_invoices(self):
         self.ensure_one()
         invoices = self._get_all_linked_invoices()
@@ -530,10 +545,20 @@ class ServiceOrder(models.Model):
                 rec.generador_responsable_id = False
                 rec.contact_partner_id = False
                 rec.pickup_location_id = False
+                rec.pickup_location = False
                 return
 
             gen = rec._find_related_contact_with_tag(rec.partner_id, 'Generador')
             rec.generador_id = gen.id if gen else False
+
+            # Si el cliente tiene un generador detectado, la ubicación de recolección
+            # debe ser el contacto/dirección del generador, no la dirección fiscal.
+            if gen:
+                rec.pickup_location_id = gen
+                rec.pickup_location = rec._prepare_pickup_location_text(gen)
+            elif rec.pickup_location_id and not rec._is_partner_related_to_client(rec.pickup_location_id, rec.partner_id):
+                rec.pickup_location_id = False
+                rec.pickup_location = False
 
             if rec.generador_responsable_id and not rec._is_partner_related_to_client(rec.generador_responsable_id, rec.partner_id):
                 rec.generador_responsable_id = False
@@ -541,8 +566,21 @@ class ServiceOrder(models.Model):
             if rec.contact_partner_id and not rec._is_partner_related_to_client(rec.contact_partner_id, rec.partner_id):
                 rec.contact_partner_id = False
 
-            if rec.pickup_location_id and not rec._is_partner_related_to_client(rec.pickup_location_id, rec.partner_id):
-                rec.pickup_location_id = False
+    @api.onchange('generador_id')
+    def _onchange_generador_id(self):
+        """
+        Al seleccionar manualmente un generador, la ubicación de recolección
+        debe apuntar al mismo contacto/dirección del generador.
+
+        Ejemplo:
+        Cliente fiscal: Empresa X
+        Generador: Planta 1
+        Ubicación de recolección: Planta 1
+        """
+        for rec in self:
+            if rec.generador_id:
+                rec.pickup_location_id = rec.generador_id
+                rec.pickup_location = rec._prepare_pickup_location_text(rec.generador_id)
 
     @api.onchange('contact_partner_id')
     def _onchange_contact_partner_id(self):
@@ -581,8 +619,10 @@ class ServiceOrder(models.Model):
     def _onchange_transportista_id(self):
         for rec in self:
             if rec.transportista_responsable_id and rec.transportista_id:
-                ok = (rec.transportista_responsable_id.id == rec.transportista_id.id or
-                      rec.transportista_responsable_id.parent_id.id == rec.transportista_id.id)
+                ok = (
+                    rec.transportista_responsable_id.id == rec.transportista_id.id
+                    or rec.transportista_responsable_id.parent_id.id == rec.transportista_id.id
+                )
                 if not ok:
                     rec.transportista_responsable_id = False
 
@@ -610,6 +650,18 @@ class ServiceOrder(models.Model):
                 partner = self.env['res.partner'].browse(vals['partner_id'])
                 gen = self._find_related_contact_with_tag(partner, 'Generador')
                 vals['generador_id'] = gen.id if gen else False
+
+                # Si el generador se autollenó, también debe propagarse como ubicación.
+                # Esto evita que órdenes creadas desde cotización conserven la dirección fiscal.
+                if gen:
+                    vals['pickup_location_id'] = gen.id
+                    vals['pickup_location'] = self._prepare_pickup_location_text(gen)
+
+            elif vals.get('generador_id') and not vals.get('pickup_location_id'):
+                gen = self.env['res.partner'].browse(vals['generador_id'])
+                if gen.exists():
+                    vals['pickup_location_id'] = gen.id
+                    vals['pickup_location'] = self._prepare_pickup_location_text(gen)
 
             if vals.get('contact_partner_id'):
                 c = self.env['res.partner'].browse(vals['contact_partner_id'])
@@ -645,6 +697,16 @@ class ServiceOrder(models.Model):
             vehicle = self.env['fleet.vehicle'].browse(vals['vehicle_id'])
             if vehicle.exists() and 'numero_placa' not in vals:
                 vals['numero_placa'] = vehicle.license_plate or False
+
+        # Si se cambia el generador, la ubicación de recolección debe seguirlo.
+        # No se pisa pickup_location_id si viene explícitamente en vals.
+        if 'generador_id' in vals and vals.get('generador_id'):
+            gen = self.env['res.partner'].browse(vals['generador_id'])
+            if gen.exists():
+                if 'pickup_location_id' not in vals:
+                    vals['pickup_location_id'] = gen.id
+                if 'pickup_location' not in vals:
+                    vals['pickup_location'] = self._prepare_pickup_location_text(gen)
 
         return super().write(vals)
 
