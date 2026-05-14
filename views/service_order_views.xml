@@ -114,7 +114,8 @@
     </field>
   </record>
 
-  <!-- VISTA LISTA (ORDEN) -->
+  
+    <!-- VISTA LISTA (ORDEN) -->
   <record id="view_service_order_list" model="ir.ui.view">
     <field name="name">service.order.list</field>
     <field name="model">service.order</field>
@@ -122,12 +123,18 @@
     <field name="arch" type="xml">
       <list string="Órdenes de Servicio" default_order="date_order desc">
 
+        <!-- =====================================================
+             IDENTIFICACIÓN PRINCIPAL
+             ===================================================== -->
         <field name="name" string="Folio" class="fw-bold"/>
         <field name="date_order" string="Fecha"/>
         <field name="partner_id" string="Cliente"/>
         <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="show"/>
         <field name="sale_order_id" string="Cotización" readonly="1" optional="show"/>
 
+        <!-- =====================================================
+             ESTADOS
+             ===================================================== -->
         <field name="state"
                string="Estado"
                widget="badge"
@@ -146,6 +153,9 @@
                decoration-success="invoicing_status == 'invoiced'"
                decoration-primary="invoicing_status == 'paid'"/>
 
+        <!-- =====================================================
+             MÉTRICAS OPERATIVAS Y FINANCIERAS
+             ===================================================== -->
         <field name="lines_count" string="Líneas" sum="Total Líneas" optional="show"/>
         <field name="total_weight_kg" string="Peso Total kg" sum="Total Peso" optional="show"/>
         <field name="total_product_qty" string="Cantidad Total" sum="Total Cantidad" optional="show"/>
@@ -174,6 +184,9 @@
 
         <field name="currency_id" string="Moneda" column_invisible="1"/>
 
+        <!-- =====================================================
+             CLIENTE / UBICACIÓN / CONTACTO
+             ===================================================== -->
         <field name="partner_city" string="Ciudad Cliente" optional="hide"/>
         <field name="partner_state_id" string="Estado Cliente" optional="hide"/>
 
@@ -184,14 +197,23 @@
         <field name="pickup_location_id" string="Ubicación Recolección" optional="hide"/>
         <field name="pickup_location" string="Ubicación Recolección Texto" optional="hide"/>
 
+        <!-- =====================================================
+             GENERADOR / DESTINATARIO
+             ===================================================== -->
         <field name="generador_id" string="Generador" optional="show"/>
         <field name="generador_responsable_id" string="Responsable Generador" optional="hide"/>
         <field name="destinatario_id" string="Destinatario Final" optional="hide"/>
 
+        <!-- =====================================================
+             SERVICIO
+             ===================================================== -->
         <field name="service_frequency" string="Frecuencia" optional="hide"/>
         <field name="residue_new" string="Residuo Nuevo" optional="hide"/>
         <field name="requiere_visita" string="Requiere Visita" optional="hide"/>
 
+        <!-- =====================================================
+             TRANSPORTE / LOGÍSTICA
+             ===================================================== -->
         <field name="transportista_id" string="Transportista" optional="show"/>
         <field name="transportista_responsable_id" string="Resp. Transportista" optional="hide"/>
         <field name="chofer_id" string="Chofer" optional="show"/>
@@ -210,9 +232,15 @@
         <field name="bascula_2_peso" string="Peso Báscula 2 kg" sum="Total Báscula 2" optional="hide"/>
         <field name="numero_bascula" string="Báscula Legacy" optional="hide"/>
 
+        <!-- =====================================================
+             FACTURACIÓN
+             ===================================================== -->
         <field name="invoice_count" string="Facturas" optional="hide"/>
         <field name="invoice_ids" string="Facturas Vinculadas" widget="many2many_tags" optional="hide"/>
 
+        <!-- =====================================================
+             OBSERVACIONES
+             ===================================================== -->
         <field name="observaciones" string="Observaciones" optional="hide"/>
 
       </list>
@@ -275,10 +303,7 @@
                   <field name="pickup_location_id" options="{'no_create': True}" domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]" placeholder="Seleccionar ubicación de recolección..."/>
                   <field name="pickup_location" invisible="1"/>
                   <field name="transportista_id" string="Transportista" options="{'no_create': True}"/>
-                  <field name="transportista_responsable_id"
-                         options="{'no_create': True}"
-                         domain="[('parent_id', '=', transportista_id), ('category_id.name', 'ilike', 'Responsable')]"
-                         placeholder="Seleccionar responsable interno del transportista..."/>
+                  <field name="transportista_responsable_id" options="{'no_create': True}" domain="['|', ('parent_id', '=', transportista_id), ('id', '=', transportista_id)]" placeholder="Seleccionar contacto del transportista..."/>
                 </group>
               </group>
             </page>
@@ -286,14 +311,14 @@
             <page string="Logística" name="page_logistics">
               <group>
                 <group string="Unidad y Operador">
+                  <!-- vehicle_id reemplaza a camion (Char) -->
                   <field name="vehicle_id" options="{'no_create': True}" placeholder="Seleccionar vehículo de flota..."/>
+                  <!-- Placa se rellena automáticamente, readonly para evitar edición manual accidental -->
                   <field name="numero_placa" readonly="1" placeholder="Se rellena desde el vehículo"/>
-                  <field name="chofer_id"
-                         options="{'no_create': True}"
-                         domain="[('parent_id', '=', transportista_id), ('category_id.name', 'ilike', 'Responsable')]"
-                         placeholder="Seleccionar chofer/responsable..."/>
+                  <field name="chofer_id" options="{'no_create': True}" placeholder="Seleccionar chofer..."/>
                 </group>
                 <group string="Remolques y Básculas">
+                  <!-- Remolques ahora apuntan a fleet.vehicle filtrados por etiqueta -->
                   <field name="remolque1_id" options="{'no_create': True}" domain="[('tag_ids.name', 'ilike', 'remolque')]" placeholder="Seleccionar remolque 1..."/>
                   <field name="remolque2_id" options="{'no_create': True}" domain="[('tag_ids.name', 'ilike', 'remolque')]" placeholder="Seleccionar remolque 2..."/>
                   <label for="bascula_1_numero" string="Báscula 1"/>
