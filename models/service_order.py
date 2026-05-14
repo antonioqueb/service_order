@@ -36,18 +36,17 @@ class ServiceOrder(models.Model):
         help="Usuario responsable de la venta/servicio."
     )
 
-    # Campos geográficos "aplanados"
     partner_city = fields.Char(
         related='partner_id.city',
         store=True,
         string="Ciudad Cliente"
     )
+
     partner_state_id = fields.Many2one(
         related='partner_id.state_id',
         store=True,
         string="Estado Cliente"
     )
-    # =========================================================
 
     partner_id = fields.Many2one(
         'res.partner',
@@ -134,6 +133,7 @@ class ServiceOrder(models.Model):
         tracking=True,
         help='Dirección/contacto seleccionado para la recolección.'
     )
+
     pickup_location = fields.Char(
         string='Ubicación de Recolección (texto)',
         help='Campo legacy.',
@@ -173,6 +173,7 @@ class ServiceOrder(models.Model):
         readonly=False,
         tracking=True,
     )
+
     contact_phone = fields.Char(
         string='Teléfono de Contacto (legacy)',
         compute='_compute_contact_legacy',
@@ -187,11 +188,12 @@ class ServiceOrder(models.Model):
     transportista_id = fields.Many2one(
         'res.partner',
         string='Transportista',
-        default=lambda self: self.env.company.partner_id,
+        default=lambda self: self._get_default_transportista_id(),
+        domain="[('name', '=', 'SA Transporte')]",
         tracking=True,
+        help='Transportista fijo para órdenes de servicio. Solo debe seleccionarse SA Transporte.',
     )
 
-    # Vehículo principal (reemplaza al campo "camion" Char)
     vehicle_id = fields.Many2one(
         'fleet.vehicle',
         string='Vehículo',
@@ -207,11 +209,6 @@ class ServiceOrder(models.Model):
 
     # =========================================================
     # CHOFER / RESPONSABLE TRANSPORTISTA
-    # ---------------------------------------------------------
-    # Regla de negocio: Chofer y Responsable Transportista son la
-    # MISMA persona. El campo "fuente" es transportista_responsable_id
-    # (editable). chofer_id es un computed con inverse, de modo que
-    # editar cualquiera de los dos sincroniza el otro siempre.
     # =========================================================
     transportista_responsable_id = fields.Many2one(
         'res.partner',
@@ -230,7 +227,6 @@ class ServiceOrder(models.Model):
         help='Chofer asignado. Siempre coincide con el Responsable Transportista.',
     )
 
-    # Remolques como vehículos de flota filtrados por etiqueta
     remolque1_id = fields.Many2one(
         'fleet.vehicle',
         string='Remolque 1',
@@ -238,6 +234,7 @@ class ServiceOrder(models.Model):
         domain="[('tag_ids.name', 'ilike', 'remolque')]",
         help='Seleccione el remolque 1 desde el catálogo de flota.',
     )
+
     remolque2_id = fields.Many2one(
         'fleet.vehicle',
         string='Remolque 2',
@@ -246,13 +243,13 @@ class ServiceOrder(models.Model):
         help='Seleccione el remolque 2 desde el catálogo de flota.',
     )
 
-    # Campos legacy para compatibilidad con reportes existentes (readonly, calculados)
     remolque1 = fields.Char(
         string='Remolque 1 (placa/nombre)',
         compute='_compute_remolques_legacy',
         store=True,
         readonly=True,
     )
+
     remolque2 = fields.Char(
         string='Remolque 2 (placa/nombre)',
         compute='_compute_remolques_legacy',
@@ -266,7 +263,11 @@ class ServiceOrder(models.Model):
     bascula_2_peso = fields.Float(string='Peso Báscula 2 (kg)', tracking=True)
     numero_bascula = fields.Char(string='Número de Báscula (legacy)', tracking=True)
 
-    destinatario_id = fields.Many2one('res.partner', string='Destinatario Final', tracking=True)
+    destinatario_id = fields.Many2one(
+        'res.partner',
+        string='Destinatario Final',
+        tracking=True,
+    )
 
     # =========================================================
     # FACTURACIÓN
@@ -342,9 +343,6 @@ class ServiceOrder(models.Model):
     # COMPUTES
     # -------------------------------------------------------------------------
     def _get_all_linked_invoices(self):
-        """
-        Obtiene facturas reales (Many2many) + facturas legacy (origen).
-        """
         self.ensure_one()
 
         invoices = self.invoice_ids
@@ -368,12 +366,10 @@ class ServiceOrder(models.Model):
 
     @api.depends('transportista_responsable_id')
     def _compute_chofer_id(self):
-        """Chofer siempre sigue al Responsable Transportista."""
         for rec in self:
             rec.chofer_id = rec.transportista_responsable_id
 
     def _inverse_chofer_id(self):
-        """Si el usuario edita el chofer, sincronizamos el responsable."""
         for rec in self:
             rec.transportista_responsable_id = rec.chofer_id
 
@@ -381,7 +377,6 @@ class ServiceOrder(models.Model):
     def _compute_invoicing_status(self):
         for order in self:
             invoices = order._get_all_linked_invoices()
-
             active_invoices = invoices.filtered(lambda inv: inv.state != 'cancel')
 
             if not active_invoices:
@@ -454,7 +449,6 @@ class ServiceOrder(models.Model):
             order.amount_untaxed = total_untaxed
             order.amount_tax = total_tax
             order.amount_total = total_untaxed + total_tax
-
             order.total_weight_kg = total_weight
             order.total_product_qty = total_qty
             order.lines_count = count_lines
@@ -484,13 +478,16 @@ class ServiceOrder(models.Model):
     def _find_related_contact_with_tag(self, partner, tag_name):
         if not partner:
             return False
+
         tag = self._get_partner_category_by_name(tag_name)
         if not tag:
             return False
 
         domain = [
             ('category_id', 'in', [tag.id]),
-            '|', ('parent_id', '=', partner.id), ('id', '=', partner.id)
+            '|',
+            ('parent_id', '=', partner.id),
+            ('id', '=', partner.id)
         ]
         return self.env['res.partner'].sudo().search(domain, order='id asc', limit=1)
 
@@ -514,12 +511,6 @@ class ServiceOrder(models.Model):
         }
 
     def _prepare_pickup_location_text(self, partner):
-        """
-        Devuelve una dirección legible para el campo legacy pickup_location.
-
-        La fuente real debe ser pickup_location_id, pero mantenemos este texto
-        por compatibilidad con reportes o datos anteriores.
-        """
         if not partner:
             return False
 
@@ -527,6 +518,38 @@ class ServiceOrder(models.Model):
         address = address.replace('\n', ', ').strip()
 
         return address or partner.display_name or partner.name or False
+
+    def _get_sa_transporte_partner(self):
+        """
+        Localiza el contacto permitido para Transportista.
+
+        Regla de negocio:
+        En Orden de Servicio, el campo Transportista debe limitarse a SA Transporte.
+        """
+        return self.env['res.partner'].sudo().search([
+            ('name', '=', 'SA Transporte')
+        ], limit=1)
+
+    def _get_default_transportista_id(self):
+        transportista = self._get_sa_transporte_partner()
+        return transportista.id if transportista else False
+
+    def _normalize_transportista_vals(self, vals):
+        """
+        Fuerza el transportista permitido en altas/escrituras.
+
+        Esto evita que una orden creada desde cotización, importación,
+        acción de servidor o edición manual conserve otro partner fiscal
+        como transportista.
+        """
+        transportista = self._get_sa_transporte_partner()
+        if not transportista:
+            return vals
+
+        if vals.get('transportista_id') != transportista.id:
+            vals['transportista_id'] = transportista.id
+
+        return vals
 
     def _has_blocking_invoices(self):
         self.ensure_one()
@@ -551,10 +574,8 @@ class ServiceOrder(models.Model):
             gen = rec._find_related_contact_with_tag(rec.partner_id, 'Generador')
             rec.generador_id = gen.id if gen else False
 
-            # Si el cliente tiene un generador detectado, la ubicación de recolección
-            # debe ser el contacto/dirección del generador, no la dirección fiscal.
             if gen:
-                rec.pickup_location_id = gen
+                rec.pickup_location_id = gen.id
                 rec.pickup_location = rec._prepare_pickup_location_text(gen)
             elif rec.pickup_location_id and not rec._is_partner_related_to_client(rec.pickup_location_id, rec.partner_id):
                 rec.pickup_location_id = False
@@ -568,23 +589,15 @@ class ServiceOrder(models.Model):
 
     @api.onchange('generador_id')
     def _onchange_generador_id(self):
-        """
-        Al seleccionar manualmente un generador, la ubicación de recolección
-        debe apuntar al mismo contacto/dirección del generador.
-
-        Ejemplo:
-        Cliente fiscal: Empresa X
-        Generador: Planta 1
-        Ubicación de recolección: Planta 1
-        """
         for rec in self:
             if rec.generador_id:
-                rec.pickup_location_id = rec.generador_id
+                rec.pickup_location_id = rec.generador_id.id
                 rec.pickup_location = rec._prepare_pickup_location_text(rec.generador_id)
 
     @api.onchange('contact_partner_id')
     def _onchange_contact_partner_id(self):
         warning = False
+
         for rec in self:
             if rec.contact_partner_id:
                 partner = rec.contact_partner_id
@@ -608,7 +621,6 @@ class ServiceOrder(models.Model):
 
     @api.onchange('vehicle_id')
     def _onchange_vehicle_id(self):
-        """Rellena automáticamente la placa desde el vehículo seleccionado."""
         for rec in self:
             if rec.vehicle_id:
                 rec.numero_placa = rec.vehicle_id.license_plate or False
@@ -618,6 +630,14 @@ class ServiceOrder(models.Model):
     @api.onchange('transportista_id')
     def _onchange_transportista_id(self):
         for rec in self:
+            sa_transporte = rec._get_sa_transporte_partner()
+
+            if sa_transporte and rec.transportista_id and rec.transportista_id.id != sa_transporte.id:
+                rec.transportista_id = sa_transporte.id
+
+            if sa_transporte and not rec.transportista_id:
+                rec.transportista_id = sa_transporte.id
+
             if rec.transportista_responsable_id and rec.transportista_id:
                 ok = (
                     rec.transportista_responsable_id.id == rec.transportista_id.id
@@ -646,13 +666,13 @@ class ServiceOrder(models.Model):
                 else:
                     vals['user_id'] = self.env.user.id
 
+            self._normalize_transportista_vals(vals)
+
             if vals.get('partner_id') and not vals.get('generador_id'):
                 partner = self.env['res.partner'].browse(vals['partner_id'])
                 gen = self._find_related_contact_with_tag(partner, 'Generador')
                 vals['generador_id'] = gen.id if gen else False
 
-                # Si el generador se autollenó, también debe propagarse como ubicación.
-                # Esto evita que órdenes creadas desde cotización conserven la dirección fiscal.
                 if gen:
                     vals['pickup_location_id'] = gen.id
                     vals['pickup_location'] = self._prepare_pickup_location_text(gen)
@@ -668,13 +688,11 @@ class ServiceOrder(models.Model):
                 if c:
                     vals.update(self._prepare_contact_legacy_vals(c))
 
-            # Rellenar placa desde vehículo si no viene explícita
             if vals.get('vehicle_id') and not vals.get('numero_placa'):
                 vehicle = self.env['fleet.vehicle'].browse(vals['vehicle_id'])
                 if vehicle.exists():
                     vals['numero_placa'] = vehicle.license_plate or False
 
-            # Sincronización chofer <-> responsable transportista en alta
             if vals.get('chofer_id') and not vals.get('transportista_responsable_id'):
                 vals['transportista_responsable_id'] = vals['chofer_id']
             elif vals.get('transportista_responsable_id') and not vals.get('chofer_id'):
@@ -683,6 +701,8 @@ class ServiceOrder(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        self._normalize_transportista_vals(vals)
+
         if 'contact_partner_id' in vals:
             if vals.get('contact_partner_id'):
                 partner = self.env['res.partner'].browse(vals['contact_partner_id'])
@@ -692,14 +712,11 @@ class ServiceOrder(models.Model):
                 vals.pop('contact_name', None)
                 vals.pop('contact_phone', None)
 
-        # Rellenar placa desde vehículo si se cambia el vehículo
         if 'vehicle_id' in vals and vals.get('vehicle_id'):
             vehicle = self.env['fleet.vehicle'].browse(vals['vehicle_id'])
             if vehicle.exists() and 'numero_placa' not in vals:
                 vals['numero_placa'] = vehicle.license_plate or False
 
-        # Si se cambia el generador, la ubicación de recolección debe seguirlo.
-        # No se pisa pickup_location_id si viene explícitamente en vals.
         if 'generador_id' in vals and vals.get('generador_id'):
             gen = self.env['res.partner'].browse(vals['generador_id'])
             if gen.exists():
@@ -726,7 +743,6 @@ class ServiceOrder(models.Model):
         self.write({'state': 'cancel'})
 
     def action_set_draft(self):
-        """Restablecer a borrador desde cancelado, confirmado o done"""
         for order in self:
             if order.state not in ('cancel', 'confirmed', 'done'):
                 raise UserError(_('Solo se pueden restablecer a borrador órdenes canceladas, confirmadas o completadas.'))
@@ -754,6 +770,5 @@ class ServiceOrder(models.Model):
         }
 
     def action_recompute_invoicing_status(self):
-        """Fuerza el recálculo del estado de facturación"""
         self._compute_invoicing_status()
         return True
