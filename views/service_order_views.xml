@@ -275,6 +275,9 @@
             <button name="action_view_linked_invoices" type="object" class="oe_stat_button" icon="fa-file-text-o" invisible="invoice_count == 0">
               <field name="invoice_count" widget="statinfo" string="Facturas"/>
             </button>
+            <button name="action_view_transitos_directos" type="object" class="oe_stat_button" icon="fa-road" invisible="transito_directo_count == 0">
+              <field name="transito_directo_count" widget="statinfo" string="Tránsitos Directos"/>
+            </button>
           </div>
 
           <div class="oe_title">

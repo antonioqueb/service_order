@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <data noupdate="1">
+
+    <record id="seq_transito_directo" model="ir.sequence">
+      <field name="name">Tránsito Directo</field>
+      <field name="code">transito.directo</field>
+      <field name="prefix">TD-%(year)s-</field>
+      <field name="padding">5</field>
+      <field name="use_date_range">True</field>
+      <field name="company_id" eval="False"/>
+    </record>
+
+  </data>
+</odoo>

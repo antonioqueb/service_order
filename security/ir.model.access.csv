@@ -1,3 +1,5 @@
 id,name,model_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_service_order,access_service_order,model_service_order,1,1,1,1
 access_service_order_line,access_service_order_line,model_service_order_line,1,1,1,1
+access_transito_directo,access_transito_directo,model_transito_directo,1,1,1,1
+access_ruta_generador,access_ruta_generador,model_ruta_generador,1,1,1,1

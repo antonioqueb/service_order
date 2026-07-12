@@ -362,6 +362,15 @@ class ServiceOrder(models.Model):
         store=False,
     )
 
+    transito_directo_ids = fields.One2many(
+        'transito.directo', 'service_order_id', string='Tránsitos Directos',
+    )
+    transito_directo_count = fields.Integer(
+        string='Número de Tránsitos Directos',
+        compute='_compute_transito_directo_count',
+        store=False,
+    )
+
     # =========================================================
     # CAMPOS FINANCIEROS Y MÉTRICAS
     # =========================================================
@@ -482,6 +491,11 @@ class ServiceOrder(models.Model):
         for order in self:
             invoices = order._get_all_linked_invoices()
             order.invoice_count = len(invoices.filtered(lambda inv: inv.state != 'cancel'))
+
+    @api.depends('transito_directo_ids')
+    def _compute_transito_directo_count(self):
+        for order in self:
+            order.transito_directo_count = len(order.transito_directo_ids)
 
     @api.depends('sale_order_id', 'sale_order_id.currency_id')
     def _compute_currency_id(self):
@@ -881,6 +895,23 @@ class ServiceOrder(models.Model):
             'view_mode': 'list,form',
             'domain': [('id', 'in', invoices.ids)],
             'context': {'create': False},
+        }
+
+    def action_view_transitos_directos(self):
+        self.ensure_one()
+        if len(self.transito_directo_ids) == 1:
+            return {
+                'type': 'ir.actions.act_window',
+                'res_model': 'transito.directo',
+                'view_mode': 'form',
+                'res_id': self.transito_directo_ids.id,
+            }
+        return {
+            'name': _('Tránsitos Directos'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'transito.directo',
+            'view_mode': 'list,form',
+            'domain': [('id', 'in', self.transito_directo_ids.ids)],
         }
 
     def action_recompute_invoicing_status(self):

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+  <record id="action_transito_directo" model="ir.actions.act_window">
+    <field name="name">Bitácora de Tránsitos Directos</field>
+    <field name="res_model">transito.directo</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smart_action">
+        Aquí se registran automáticamente los tránsitos donde el residuo se
+        transportó directamente del generador al destino final, sin pasar
+        por el inventario/almacén de SAI.
+      </p>
+    </field>
+  </record>
+
+  <record id="view_transito_directo_list" model="ir.ui.view">
+    <field name="name">transito.directo.list</field>
+    <field name="model">transito.directo</field>
+    <field name="arch" type="xml">
+      <list default_order="fecha_transito desc">
+        <field name="name"/>
+        <field name="fecha_transito"/>
+        <field name="generador_nombre"/>
+        <field name="destinatario_nombre"/>
+        <field name="transportista_nombre"/>
+        <field name="numero_placa" optional="show"/>
+        <field name="service_order_id" optional="show"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_transito_directo_form" model="ir.ui.view">
+    <field name="name">transito.directo.form</field>
+    <field name="model">transito.directo</field>
+    <field name="arch" type="xml">
+      <form string="Tránsito Directo">
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" readonly="1"/></h1>
+          </div>
+          <group>
+            <group string="Origen">
+              <field name="service_order_id" readonly="1"/>
+              <field name="fecha_transito" readonly="1"/>
+              <field name="generador_id" readonly="1"/>
+              <field name="generador_nombre" readonly="1"/>
+            </group>
+            <group string="Destino">
+              <field name="destinatario_id" readonly="1"/>
+              <field name="destinatario_nombre" readonly="1"/>
+            </group>
+          </group>
+          <group>
+            <group string="Transporte">
+              <field name="transportista_id" readonly="1"/>
+              <field name="transportista_nombre" readonly="1"/>
+              <field name="vehicle_id" readonly="1"/>
+              <field name="numero_placa" readonly="1"/>
+              <field name="chofer_id" readonly="1"/>
+            </group>
+            <group string="Compañía">
+              <field name="company_id" groups="base.group_multi_company"/>
+            </group>
+          </group>
+          <group>
+            <field name="observaciones"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_transito_directo_search" model="ir.ui.view">
+    <field name="name">transito.directo.search</field>
+    <field name="model">transito.directo</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <field name="generador_nombre"/>
+        <field name="destinatario_nombre"/>
+        <field name="transportista_nombre"/>
+        <field name="service_order_id"/>
+        <filter string="Este Mes" name="filter_this_month"
+                domain="[('fecha_transito', '&gt;=', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+        <separator/>
+        <filter string="Generador" name="group_generador" context="{'group_by': 'generador_nombre'}"/>
+        <filter string="Destinatario" name="group_destinatario" context="{'group_by': 'destinatario_nombre'}"/>
+        <filter string="Mes" name="group_month" context="{'group_by': 'fecha_transito:month'}"/>
+      </search>
+    </field>
+  </record>
+
+  <menuitem id="menu_transito_directo"
+            name="Bitácora de Tránsitos Directos"
+            parent="menu_service_order_root"
+            action="action_transito_directo"
+            sequence="50"/>
+
+</odoo>
