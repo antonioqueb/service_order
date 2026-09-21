@@ -83,7 +83,8 @@
 
   <menuitem id="menu_ruta_generador_root"
             name="Rutas"
-            sequence="60"/>
+            sequence="60"
+            web_icon="service_order,static/description/icon_rutas.svg"/>
 
   <menuitem id="menu_ruta_generador"
             name="Catálogo de Rutas"
